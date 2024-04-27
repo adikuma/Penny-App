@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Animated } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Animated, TextInput, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
 import GestureRecognizer from 'react-native-swipe-gestures';
 import * as Haptics from 'expo-haptics';
 import { FlatList } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { launchCamera } from 'react-native-image-picker';
 
-const avatarUrl = 'https://via.placeholder.com/50';
 
 const data = {
   Daily: ['$156.28', '$162.47', '$174.52', '$180.66', '$195.85'],
@@ -68,36 +67,6 @@ const TabBar = ({ tabs, onSelect, selectedTab }) => {
   );
 };
 
-const SwipeIndicator = () => {
-  const anim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const runAnimation = () => {
-      Animated.sequence([
-        Animated.timing(anim, {
-          toValue: 0.3,
-          duration: 1000,
-          useNativeDriver: true
-        }),
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true
-        })
-      ]).start(() => runAnimation());
-    };
-
-    runAnimation();
-    return () => anim.stopAnimation();
-  }, []);
-
-  return (
-    <Animated.View style={{ opacity: anim, alignItems: 'center', marginBottom: 0 }}>
-      <Text style={styles.swipeText}>⟷</Text>
-    </Animated.View>
-  );
-};
-
 
 const TransactionItem = ({ title, subtitle, amount, date }) => {
   return (
@@ -121,22 +90,33 @@ const TransactionItem = ({ title, subtitle, amount, date }) => {
 };
 
 const CameraButton = () => {
+  const openCamera = () => {
+    const options = {
+      mediaType: 'photo',
+      cameraType: 'back',
+    };
+
+    launchCamera(options, (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled camera picker');
+      } else if (response.error) {
+        console.log('CameraPicker Error: ', response.error);
+      } else {
+        const source = { uri: response.assets[0].uri };
+        console.log('Camera photo: ', source);
+      }
+    });
+  };
+
   return (
-    <TouchableOpacity
-      onPress={() => console.log('Access Camera')}
-      style={styles.cameraButton}
-    >
-      <Text style={styles.cameraButtonText}>Camera</Text>
+    <TouchableOpacity onPress={openCamera} style={styles.cameraButton}>
+      <Image
+        style={styles.cameraIcon}
+        source={{ uri: 'https://img.icons8.com/deco/48/camera.png' }}
+      />
     </TouchableOpacity>
   );
 };
-
-const OverlayView = () => {
-  return (
-    <View style={styles.overlay} />
-  );
-};
-
 
 export default function App() {
   const [selectedTab, setSelectedTab] = useState('Daily');
@@ -146,10 +126,15 @@ export default function App() {
   const [date, setDate] = useState(new Date());
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const combinedTransactions = [...transactions];
-  const [isScrolling, setIsScrolling] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchWidth] = useState(new Animated.Value(0)); 
+  const [opacity] = useState(new Animated.Value(0));
+
+
   //blur
-  const listRef = useRef(null); // Ref for the FlatList
-  const blurAnim = useRef(new Animated.Value(0)).current; // Controls the blur opacity
+  const listRef = useRef(null); 
+  const blurAnim = useRef(new Animated.Value(0)).current;
 
   //blur
   const handleScroll = (event) => {
@@ -172,6 +157,25 @@ export default function App() {
     }
     loadFonts();
   }, []);
+
+  useEffect(() => {
+    async function loadFonts() {
+      await Font.loadAsync({
+        'CustomFont-Regular': require('./assets/fonts/LeagueMono-CondensedLight.ttf'),
+        'CustomFont-Bold': require('./assets/fonts/LeagueMono-CondensedSemiBold.ttf'),
+      });
+      setFontsLoaded(true);
+    }
+    loadFonts();
+  }, []);
+
+  const toggleSearchMode = () => {
+    setIsSearchMode(!isSearchMode);
+    if (isSearchMode) {
+      setSearchQuery('');
+    }
+  };
+
 
   useEffect(() => {
     setValue(data[selectedTab][currentIndex]);
@@ -223,6 +227,7 @@ export default function App() {
     return <ActivityIndicator />;
   }
 
+
   return (
     <View style={styles.container}>
       <TabBar
@@ -239,51 +244,56 @@ export default function App() {
         <Animated.Text style={[styles.valueText, { opacity: fadeAnim }]}>{value}</Animated.Text>
         <Text style={styles.dateText}>{formatDate(date)}</Text>
       </GestureRecognizer>
-      <SwipeIndicator />
       <StatusBar style="auto" />
-      <Text style={styles.sectionTitle}>Transactions</Text>
+      <View style={styles.headerContainer}>
+        {isSearchMode ? (
+          <View style={styles.searchBarContainer}>
+            <TextInput
+              autoFocus
+              placeholder="Search..."
+              style={styles.searchBar}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <TouchableOpacity onPress={toggleSearchMode} style={styles.closeSearch}>
+              <Text style={styles.closeSearchText}>X</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>Transactions</Text>
+            <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIconContainer}>
+              <Text style={styles.searchButtonText}>Search</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
       <View style={styles.customLine} />
       <View style={styles.transactionList}>
-      <FlatList
-        data={combinedTransactions}
-        keyExtractor={item => item.id}
-        
-        renderItem={({ item }) => (
-          <TransactionItem
-            title={item.title}
-            subtitle={item.subtitle}
-            amount={item.amount}
-            date={item.date}
-            avatarUrl={item.avatarUrl} 
-          />
-        )}
-        onScroll={handleScroll}
-        scrollEventThrottle={1}
-      />
-      <Animated.View
-        style={[
-          styles.blurOverlay,
-          {
-            opacity: blurAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1],
-              extrapolate: 'clamp',
-            }),
-          },
-        ]}
-      >
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          blurType="light"
-          blurAmount={50} 
+        <FlatList
+          data={combinedTransactions.filter((item) => {
+            const itemData = `${item.title.toUpperCase()} ${item.subtitle.toUpperCase()}`;
+            const searchData = searchQuery.toUpperCase();
+            return itemData.indexOf(searchData) > -1;
+          })}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TransactionItem
+              title={item.title}
+              subtitle={item.subtitle}
+              amount={item.amount}
+              date={item.date}
+              avatarUrl={item.avatarUrl}
+            />
+          )}
+          onScroll={handleScroll}
+          scrollEventThrottle={1}
         />
-      </Animated.View>
       </View>
       <CameraButton />
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -332,18 +342,6 @@ const styles = StyleSheet.create({
     fontFamily: 'CustomFont-Regular',
     color: 'gray',
   },
-  swipeText: {
-    color: '#ccc',
-    fontSize: 16
-  },
-  sectionTitle: {
-    fontSize: 20,
-    paddingLeft: 20,
-    marginTop: 40,
-    marginBottom: 20,
-    backgroundColor: 'white',
-    fontFamily: 'CustomFont-Bold',
-  },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,7 +354,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     marginRight: 10
   },
-  
   transactionTextContent: {
     flex: 1,
     justifyContent: 'center',
@@ -402,7 +399,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'gray',
     width: '100%' 
   },
-
   cameraButton: {
     position: 'absolute',
     bottom: 30,
@@ -419,17 +415,69 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  cameraIcon: {
-    width: 30,  
-    height: 30, 
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginTop: 40,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    flex: 1,
+    paddingLeft: 10,
+    marginTop: 40,
+    marginBottom: 20,
+    backgroundColor: 'white',
+    fontFamily: 'CustomFont-Bold',
+  },
+  searchIconContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    marginRight: 10,
+    backgroundColor: 'blue',
+    borderRadius: 20,
+  },
+  searchButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: 'CustomFont-Regular',
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginTop: 40,
+    marginBottom: 20,
+  },
+  searchBar: {
+    flex: 1,
+    fontSize: 16,
+    backgroundColor: '#f2f2f2',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    marginRight: 10,
+    fontFamily: 'CustomFont-Regular',
   },
 
-  blurOverlay: {
-    position: 'absolute',
-    bottom: 0, // Align it at the bottom
-    left: 0,
-    right: 0,
-    height: 200, // The height of the blur effect (you can adjust this)
+  closeSearch: {
+    marginLeft: 5,
+    marginRight: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeSearchText: {
+    fontSize: 16,
+    color: '#000',
+  },
+
+  cameraIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 5,
   },
 
 });

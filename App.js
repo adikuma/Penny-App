@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Animated } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
-import GestureRecognizer, { swipeDirections } from 'react-native-swipe-gestures';
+import GestureRecognizer from 'react-native-swipe-gestures';
+import * as Haptics from 'expo-haptics';
+
 
 const data = {
   Daily: ['$156.28', '$162.47', '$174.52', '$180.66', '$195.85'],
@@ -17,27 +19,34 @@ const formatDate = (date) => {
   return `${day}${dateSuffix} ${date.toLocaleString('en-us', { month: 'long' })}, ${date.getFullYear()}`;
 };
 
-const TabBar = ({ tabs, onSelect, selectedTab }) => (
-  <View style={styles.tabContainer}>
-    {tabs.map((tab) => (
-      <TouchableOpacity
-        key={tab}
-        style={[
-          styles.tab,
-          selectedTab === tab && styles.selectedTab
-        ]}
-        onPress={() => onSelect(tab)}
-      >
-        <Text style={[
-          styles.tabText,
-          selectedTab === tab && styles.selectedTabText
-        ]}>
-          {tab}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+const TabBar = ({ tabs, onSelect, selectedTab }) => {
+  const handlePress = (tab) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onSelect(tab);
+  };
+
+  return (
+    <View style={styles.tabContainer}>
+      {tabs.map((tab) => (
+        <TouchableOpacity
+          key={tab}
+          style={[
+            styles.tab,
+            selectedTab === tab && styles.selectedTab
+          ]}
+          onPress={() => handlePress(tab)}
+        >
+          <Text style={[
+            styles.tabText,
+            selectedTab === tab && styles.selectedTabText
+          ]}>
+            {tab}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
 
 export default function App() {
   const [selectedTab, setSelectedTab] = useState('Daily');
@@ -45,6 +54,7 @@ export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [value, setValue] = useState(data[selectedTab][currentIndex]);
   const [date, setDate] = useState(new Date());
+  const fadeAnim = useRef(new Animated.Value(1)).current; // Initial opacity
 
   useEffect(() => {
     async function loadFonts() {
@@ -74,14 +84,31 @@ export default function App() {
     setDate(today);
   };
 
+  useEffect(() => {
+    setValue(data[selectedTab][currentIndex]);
+    updateDate(currentIndex);
+    fadeIn(); // Trigger fade in whenever the index changes
+  }, [selectedTab, currentIndex]);
+
+  const fadeIn = () => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true
+    }).start();
+  };
+
   const onSwipeLeft = () => {
     if (currentIndex > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentIndex(currentIndex - 1);
     }
   };
 
   const onSwipeRight = () => {
     if (currentIndex < data[selectedTab].length - 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentIndex(currentIndex + 1);
     }
   };
@@ -108,7 +135,7 @@ export default function App() {
         config={config}
         style={styles.valueContainer}
       >
-        <Text style={styles.valueText}>{value}</Text>
+        <Animated.Text style={[styles.valueText, { opacity: fadeAnim }]}>{value}</Animated.Text>
         <Text style={styles.dateText}>{formatDate(date)}</Text>
       </GestureRecognizer>
       <StatusBar style="auto" />

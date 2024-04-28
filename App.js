@@ -1,485 +1,96 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Animated, TextInput, Image } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import * as Font from 'expo-font';
-import GestureRecognizer from 'react-native-swipe-gestures';
-import * as Haptics from 'expo-haptics';
-import { FlatList } from 'react-native';
-import { launchCamera } from 'react-native-image-picker';
+import React from 'react';
+import { View, Text, StyleSheet, Image } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import HomeScreen from './HomeScreen';
+import TransactionScreen from './TransactionScreen';
+import CameraScreen from './CameraScreen';
 
+const Tab = createBottomTabNavigator();
 
-const data = {
-  Daily: ['$156.28', '$162.47', '$174.52', '$180.66', '$195.85'],
-  Weekly: ['$320.58', '$330.14', '$340.29', '$355.68', '$360.92'],
-  Monthly: ['$883.21', '$892.34', '$900.12', '$910.48', '$925.67']
-};
-
-const transactions = [
-  { id: '1', title: 'Sony Playstation', subtitle: 'Fifa 2022 Game', amount: '-$53.95', date: 'March 14, 2021' },
-  { id: '2', title: 'Bank Transfer', subtitle: 'Salary for March', amount: '+$2500.95', date: 'April 14, 2021' },
-  { id: '7', title: 'Book Store', subtitle: 'Learning React Native', amount: '-$39.99', date: 'February 10, 2021' },
-  { id: '8', title: 'Grocery', subtitle: 'Weekly Food Supplies', amount: '-$76.23', date: 'February 12, 2021' },
-  { id: '9', title: 'Gym Membership', subtitle: 'Monthly Subscription', amount: '-$25.00', date: 'February 15, 2021' },
-  { id: '10', title: 'Online Course', subtitle: 'Advanced Photography', amount: '-$19.99', date: 'February 18, 2021' },
-  { id: '11', title: 'Taxi Ride', subtitle: 'Cab to Airport', amount: '-$29.80', date: 'February 19, 2021' },
-  { id: '12', title: 'Pet Supplies', subtitle: 'Dog Food & Toys', amount: '-$45.75', date: 'February 21, 2021' },
-];
-
-const formatDate = (date) => {
-  const suffix = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
-  const day = date.getDate();
-  const dateSuffix = suffix[(day % 10) > 3 ? 0 : (day % 100 - day % 10 !== 10) * (day % 10)];
+function App() {
   return (
-    <Text>
-      {`${day}${dateSuffix} `}
-      <Text style={{ color: 'blue' }}>{date.toLocaleString('en-us', { month: 'long' })}</Text>
-      {`, ${date.getFullYear()}`}
-    </Text>
-  );
-};
-
-const TabBar = ({ tabs, onSelect, selectedTab }) => {
-  const handlePress = (tab) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onSelect(tab);
-  };
-
-  return (
-    <View style={styles.tabContainer}>
-      {tabs.map((tab) => (
-        <TouchableOpacity
-          key={tab}
-          style={[
-            styles.tab,
-            selectedTab === tab && styles.selectedTab
-          ]}
-          onPress={() => handlePress(tab)}
-        >
-          <Text style={[
-            styles.tabText,
-            selectedTab === tab && styles.selectedTabText
-          ]}>
-            {tab}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-
-const TransactionItem = ({ title, subtitle, amount, date }) => {
-  return (
-    <TouchableOpacity
-      style={styles.transactionItem}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }}
-    >
-      <View style={styles.avatar} />
-      <View style={styles.transactionTextContent}>
-        <Text style={styles.transactionTitle} numberOfLines={1}>{title}</Text>
-        <Text style={styles.transactionSubtitle} numberOfLines={1}>{subtitle}</Text>
-      </View>
-      <View style={styles.transactionDetails}>
-        <Text style={styles.transactionAmount}>{amount}</Text>
-        <Text style={styles.transactionDate}>{date}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-const CameraButton = () => {
-  const openCamera = () => {
-    const options = {
-      mediaType: 'photo',
-      cameraType: 'back',
-    };
-
-    launchCamera(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled camera picker');
-      } else if (response.error) {
-        console.log('CameraPicker Error: ', response.error);
-      } else {
-        const source = { uri: response.assets[0].uri };
-        console.log('Camera photo: ', source);
-      }
-    });
-  };
-
-  return (
-    <TouchableOpacity onPress={openCamera} style={styles.cameraButton}>
-      <Image
-        style={styles.cameraIcon}
-        source={{ uri: 'https://img.icons8.com/deco/48/camera.png' }}
-      />
-    </TouchableOpacity>
-  );
-};
-
-export default function App() {
-  const [selectedTab, setSelectedTab] = useState('Daily');
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [fontsLoaded, setFontsLoaded] = useState(false);
-  const [value, setValue] = useState(data[selectedTab][currentIndex]);
-  const [date, setDate] = useState(new Date());
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const combinedTransactions = [...transactions];
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchWidth] = useState(new Animated.Value(0)); 
-  const [opacity] = useState(new Animated.Value(0));
-
-
-  //blur
-  const listRef = useRef(null); 
-  const blurAnim = useRef(new Animated.Value(0)).current;
-
-  //blur
-  const handleScroll = (event) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const contentHeight = event.nativeEvent.contentSize.height;
-    const viewHeight = event.nativeEvent.layoutMeasurement.height;
-    const bottomDistance = contentHeight - viewHeight - offsetY;
-    const blurOpacity = bottomDistance < 100 ? (100 - bottomDistance) / 200 : 0;
-    blurAnim.setValue(blurOpacity);
-  };
-
-
-  useEffect(() => {
-    async function loadFonts() {
-      await Font.loadAsync({
-        'CustomFont-Regular': require('./assets/fonts/LeagueMono-CondensedLight.ttf'),
-        'CustomFont-Bold': require('./assets/fonts/LeagueMono-CondensedSemiBold.ttf'),
-      });
-      setFontsLoaded(true);
-    }
-    loadFonts();
-  }, []);
-
-  useEffect(() => {
-    async function loadFonts() {
-      await Font.loadAsync({
-        'CustomFont-Regular': require('./assets/fonts/LeagueMono-CondensedLight.ttf'),
-        'CustomFont-Bold': require('./assets/fonts/LeagueMono-CondensedSemiBold.ttf'),
-      });
-      setFontsLoaded(true);
-    }
-    loadFonts();
-  }, []);
-
-  const toggleSearchMode = () => {
-    setIsSearchMode(!isSearchMode);
-    if (isSearchMode) {
-      setSearchQuery('');
-    }
-  };
-
-
-  useEffect(() => {
-    setValue(data[selectedTab][currentIndex]);
-    updateDate(currentIndex);
-    fadeIn();
-  }, [selectedTab, currentIndex]);
-
-  const updateDate = (index) => {
-    const today = new Date();
-    if (selectedTab === 'Daily') {
-      today.setDate(today.getDate() - index);
-    } else if (selectedTab === 'Weekly') {
-      today.setDate(today.getDate() - (index * 7));
-    } else if (selectedTab === 'Monthly') {
-      today.setMonth(today.getMonth() - index);
-    }
-    setDate(today);
-  };
-
-  const fadeIn = () => {
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true
-    }).start();
-  };
-
-  const onSwipeLeft = () => {
-    if (currentIndex > 0) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  const onSwipeRight = () => {
-    if (currentIndex < data[selectedTab].length - 1) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const config = {
-    velocityThreshold: 0.3,
-    directionalOffsetThreshold: 80
-  };
-
-  if (!fontsLoaded) {
-    return <ActivityIndicator />;
-  }
-
-
-  return (
-    <View style={styles.container}>
-      <TabBar
-        tabs={['Daily', 'Weekly', 'Monthly']}
-        selectedTab={selectedTab}
-        onSelect={setSelectedTab}
-      />
-      <GestureRecognizer
-        onSwipeLeft={onSwipeLeft}
-        onSwipeRight={onSwipeRight}
-        config={config}
-        style={styles.valueContainer}
+    <NavigationContainer>
+      <Tab.Navigator
+        initialRouteName="Home"
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: '#e91e63',
+          tabBarShowLabel: true,
+          tabBarStyle: { ...styles.tabBar },
+        }}
       >
-        <Animated.Text style={[styles.valueText, { opacity: fadeAnim }]}>{value}</Animated.Text>
-        <Text style={styles.dateText}>{formatDate(date)}</Text>
-      </GestureRecognizer>
-      <StatusBar style="auto" />
-      <View style={styles.headerContainer}>
-        {isSearchMode ? (
-          <View style={styles.searchBarContainer}>
-            <TextInput
-              autoFocus
-              placeholder="Search..."
-              style={styles.searchBar}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <TouchableOpacity onPress={toggleSearchMode} style={styles.closeSearch}>
-              <Text style={styles.closeSearchText}>X</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.sectionTitle}>Transactions</Text>
-            <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIconContainer}>
-              <Text style={styles.searchButtonText}>Search</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-      <View style={styles.customLine} />
-      <View style={styles.transactionList}>
-        <FlatList
-          data={combinedTransactions.filter((item) => {
-            const itemData = `${item.title.toUpperCase()} ${item.subtitle.toUpperCase()}`;
-            const searchData = searchQuery.toUpperCase();
-            return itemData.indexOf(searchData) > -1;
-          })}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <TransactionItem
-              title={item.title}
-              subtitle={item.subtitle}
-              amount={item.amount}
-              date={item.date}
-              avatarUrl={item.avatarUrl}
-            />
-          )}
-          onScroll={handleScroll}
-          scrollEventThrottle={1}
+        <Tab.Screen 
+          name="Home" 
+          component={HomeScreen}
+          options={{
+            tabBarLabel: 'Home',
+            tabBarIcon: ({ color }) => (
+              <View style={styles.iconContainer}>
+                <Image
+                  source={require('./assets/home.png')}
+                  style={styles.icon}
+                />
+              </View>
+            ),
+          }}
         />
-      </View>
-      <CameraButton />
-    </View>
+        <Tab.Screen 
+          name="Camera" 
+          component={CameraScreen}
+          options={{
+            tabBarLabel: 'Camera',
+            tabBarIcon: ({ color }) => (
+              <View style={styles.iconContainer}>
+                <Image
+                  source={require('./assets/camera.png')}
+                  style={styles.icon}
+                />
+              </View>
+            ),
+          }}
+        />
+        <Tab.Screen 
+          name="Transactions" 
+          component={TransactionScreen}
+          options={{
+            tabBarLabel: 'Transactions',
+            tabBarIcon: ({ color }) => (
+              <View style={styles.iconContainer}>
+                <Image
+                  source={require('./assets/history.png')}
+                  style={styles.icon}
+                />
+              </View>
+            ),
+          }}
+        />
+      </Tab.Navigator>
+    </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 80,
-    borderRadius: 20,
-  },
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedTab: {
-    backgroundColor: '#ffffff',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.5,
-  },
-  tabText: {
-    color: 'gray',
-    fontFamily: 'CustomFont-Regular',
-  },
-  selectedTabText: {
-    color: 'blue',
-  },
-  valueContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  valueText: {
-    fontSize: 64,
-    fontFamily: 'CustomFont-Bold',
-    color: '#0c0212',
-  },
-  dateText: {
-    fontFamily: 'CustomFont-Regular',
-    color: 'gray',
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderWidth: 0.5, 
-    borderColor: 'black',
-    borderRadius: 20, 
-    marginTop: 10,
-    marginLeft: 10,
-    marginRight: 10
-  },
-  transactionTextContent: {
-    flex: 1,
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  transactionTitle: {
-    fontFamily: 'CustomFont-Bold',
-    fontSize: 16,
-    color: '#000',
-    maxWidth: '70%',
-  },
-  transactionSubtitle: {
-    fontFamily: 'CustomFont-Regular',
-    fontSize: 14,
-    color: 'gray',
-    maxWidth: '70%',
-  },
-  transactionDetails: {
-    alignItems: 'flex-end',
-  },
-  transactionAmount: {
-    fontFamily: 'CustomFont-Bold',
-    fontSize: 16,
-    color: '#000',
-  },
-  transactionDate: {
-    fontFamily: 'CustomFont-Regular',
-    fontSize: 14,
-    color: 'gray',
-  },
-  transactionList: {
-    flex: 1,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'blue',
-    marginRight: 10,
-  },
-  customLine: {
-    height: 1, 
-    backgroundColor: 'gray',
-    width: '100%' 
-  },
-  cameraButton: {
+  tabBar: {
+    height: 60,
     position: 'absolute',
-    bottom: 30,
-    right: 30,  
-    width: 60,  
-    height: 60, 
-    borderRadius: 30, 
-    backgroundColor: '#0c0212',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    bottom: 16,
+    right: 16,
+    left: 16,
+    borderRadius: 30,
   },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    marginTop: 40,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    flex: 1,
-    paddingLeft: 10,
-    marginTop: 40,
-    marginBottom: 20,
-    backgroundColor: 'white',
-    fontFamily: 'CustomFont-Bold',
-  },
-  searchIconContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    marginRight: 10,
-    backgroundColor: 'blue',
-    borderRadius: 20,
-  },
-  searchButtonText: {
-    fontSize: 16,
-    color: 'white',
-    fontFamily: 'CustomFont-Regular',
-  },
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginTop: 40,
-    marginBottom: 20,
-  },
-  searchBar: {
-    flex: 1,
-    fontSize: 16,
-    backgroundColor: '#f2f2f2',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    marginRight: 10,
-    fontFamily: 'CustomFont-Regular',
-  },
-
-  closeSearch: {
-    marginLeft: 5,
-    marginRight: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+  iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeSearchText: {
-    fontSize: 16,
-    color: '#000',
-  },
-
-  cameraIcon: {
+  icon: {
     width: 24,
     height: 24,
-    marginRight: 5,
   },
-
+  iconText: {
+    fontSize: 10,
+    color: '#2c3e50'
+  }
 });
 
-
+export default App;

@@ -11,10 +11,29 @@ import { launchCamera } from 'react-native-image-picker';
 import Svg, { Circle } from 'react-native-svg';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+
 
 //dimension width
 const screenWidth = Dimensions.get('window').width;
 
+const expenses = {
+  Daily: {
+    Home: '$15.75',
+    Personal: '$20.50',
+    Food: '$25.25'
+  },
+  Weekly: {
+    Home: '$350.75',
+    Personal: '$200.50',
+    Food: '$150.25'
+  },
+  Monthly: {
+    Home: '$1400.00',
+    Personal: '$800.00',
+    Food: '$600.00'
+  }
+};
 
 const data = {
   Daily: ['$156.28', '$162.47', '$174.52', '$180.66', '$195.85', '$50.58', '$20.14', '$60.29', '$132.68', '$160.92'],
@@ -89,6 +108,9 @@ export default function HomeScreen({ navigation }) {
         Monthly: 1500
     };
 
+
+  
+  
     const [selectedTab, setSelectedTab] = useState('Daily');
     const [currentIndex, setCurrentIndex] = useState(0);
     const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -100,45 +122,81 @@ export default function HomeScreen({ navigation }) {
     const quotaExceeded = remainingQuota < 0;
     const quotaTextStyle = quotaExceeded ? styles.quotaExceeded : styles.valueText;
     const [selectedValue, setSelectedValue] = useState("");
+  
+    //chart tiles
+    const chartTitle = `${selectedTab} Expenses`;
+
     const [tooltipPos, setTooltipPos] = useState({
-        x: 0,
-        y: 0,
-        visible: false,
-        value: ''
-      });    
+      x: 0,
+      y: 0,
+      visible: false,
+      value: ''
+    });
+        
     //tootltip
     const formatTooltipValue = (value) => `$${parseFloat(value).toFixed(2)}`;
 
     //hover
-    const handleDataPointClick = (data) => {
-        const { index, x, y, value } = data;
-        // Display tooltip at the right position - You'll need to adjust x and y according to your graph's layout and dimensions
-        setTooltipPos({ x: x, y: y - 30, visible: true, value: `$${value.toFixed(2)}` });
-        // Impact feedback
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      };
-    
 
-    //chart data
-    const barChartData = {
-        datasets: [
-          {
-            data: data[selectedTab].slice(-5).map(value => parseFloat(value.replace(/[$,]/g, ''))),
-          },
-        ],
+  // Function to determine color based on value exceeding quota
+  const getBarColor = (value, quota) => value > quota ? 'rgba(255, 0, 0, 0.6)' : 'rgba(0, 0, 255, 0.6)';
+
+  // Adjusting the barChartData with direct color values
+  const updatedBarChartData = () => {
+      const values = data[selectedTab].slice(-7).map(value => parseFloat(value.replace(/[$,]/g, '')));
+      const colors = values.map(value => getBarColor(value, quotas[selectedTab]));
+      return {
+          labels: ["M", "T", "W", "T", "F", "S", "S"], // Example labels for days/weeks/months
+          datasets: [
+              {
+                  data: values,
+                  color: (dataPoint, index) => colors[index], // Directly apply color based on index
+              },
+          ],
       };
+  };
+  
+  const barChartData = updatedBarChartData();
+  
+
+
+
+  
+    
 
     // datapoint click
-    const handleBarDataPointClick = (data) => {
-        const { index, value } = data;
-        const x = (screenWidth / barChartData.labels.length) * index + (screenWidth / barChartData.labels.length) / 2;
-        const y = 0; // Static Y position, as tooltip will show at the top or bottom
-        setTooltipPos({ x: x, y: y, visible: true, value: formatTooltipValue(value) });
-        // Impact feedback
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      };
-    
+// This function is triggered when a bar is tapped
+  const handleDataPointClick = (data) => {
+    const { index, value } = data;
+    const formattedValue = formatTooltipValue(value); // Ensure this returns the string correctly formatted
+    const x = (screenWidth / barChartData.labels.length) * index + (screenWidth / barChartData.labels.length) / 2;
+    const y = 0; // You might adjust this if you want the tooltip to appear over the bar
+    setTooltipPos({ x, y, visible: true, value: formattedValue });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
 
+    
+  const chartConfig = {
+    backgroundGradientFrom: 'white',
+    backgroundGradientTo: 'white',
+    fillShadowGradient: 'blue',
+    fillShadowGradientOpacity: 1,
+    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, // Default color, overridden by dataset
+    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    barPercentage: 0.3,
+    barRadius: 5,
+    decimalPlaces: 0,
+    propsForLabels: {
+        fontSize: '12',
+    },
+    propsForDots: {
+        r: "6",
+        strokeWidth: "2",
+        stroke: "#ffa726"
+    },
+    onPress: (data) => handleDataPointClick(data),
+
+};
       
   useEffect(() => {
     async function loadFonts() {
@@ -219,100 +277,122 @@ export default function HomeScreen({ navigation }) {
 
 // Within your HomeScreen component, ensure to render the ProgressBar conditionally if needed
 return (
-    <View style={styles.container}>
-      <TabBar
-        tabs={['Daily', 'Weekly', 'Monthly']}
-        selectedTab={selectedTab}
-        onSelect={setSelectedTab}
-      />
-      <GestureRecognizer
-        onSwipeLeft={onSwipeLeft}
-        onSwipeRight={onSwipeRight}
-        config={config}
-        style={styles.valueContainer}
-      >
-        <Animated.Text style={[quotaTextStyle, { opacity: fadeAnim }]}>
-          {value}
-        </Animated.Text>
-        <Text style={styles.dateText}>{formatDate(date)}</Text>
-        {quotaExceeded && <ExceededIndicator amount={Math.abs(remainingQuota)} />}
-      </GestureRecognizer>
-      <StatusBar style="auto" />
-      <View style={styles.graphSection}>
-      <BarChart
-            data={barChartData}
-            width={screenWidth - 40}
-            height={220}
-            yAxisLabel="$"
-            chartConfig={{
-                backgroundColor: '#ffffff',
-                backgroundGradientFrom: '#ffffff',
-                backgroundGradientTo: '#ffffff',
-                decimalPlaces: 0,
-                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: {
-                borderRadius: 20,
-                },
-                propsForBackgroundLines: {
-                strokeWidth: 0
-                }
-            }}
-            style={{
-                marginVertical: 8,
-                borderRadius: 16,
-            }}
-            fromZero={true}
-            showValuesOnTopOfBars={true}
-            onDataPointClick={handleBarDataPointClick}
-            />
-        {tooltipPos.visible && (
-          <View style={[styles.tooltip, { top: tooltipPos.y, left: tooltipPos.x }]}>
-            <Text style={styles.tooltipText}>{tooltipPos.value}</Text>
-          </View>
-        )}
+  <View style={styles.container}>
+    <TabBar
+      tabs={['Daily', 'Weekly', 'Monthly']}
+      selectedTab={selectedTab}
+      onSelect={setSelectedTab}
+    />
+
+    <GestureRecognizer
+      onSwipeLeft={onSwipeLeft}
+      onSwipeRight={onSwipeRight}
+      config={config}
+      style={styles.valueContainer}
+    >
+      <Animated.Text style={[quotaTextStyle, { opacity: fadeAnim }]}>
+        {value}
+      </Animated.Text>
+      <Text style={styles.dateText}>{formatDate(date)}</Text>
+      {quotaExceeded && <ExceededIndicator amount={Math.abs(remainingQuota)} />}
+    </GestureRecognizer>
+
+    {/* Updated squaresContainer to display weekly expenses */}
+    <View style={styles.squaresContainer}>
+        <View style={styles.square}>
+          <MaterialIcons name="home" size={24} color="#0c0212" />
+          <Text style={styles.squareText}>{expenses[selectedTab].Home}</Text>
+        </View>
+        <View style={styles.square}>
+          <MaterialIcons name="person" size={24} color="#0c0212" />
+          <Text style={styles.squareText}>{expenses[selectedTab].Personal}</Text>
+        </View>
+        <View style={styles.square}>
+          <MaterialIcons name="fastfood" size={24} color="#0c0212" />
+          <Text style={styles.squareText}>{expenses[selectedTab].Food}</Text>
+        </View>
       </View>
+
+
+    <StatusBar style="auto" />
+
+    <View style={styles.graphSection}>
+      <Text style={styles.chartTitleText}>{`${selectedTab} Expenses (in SGD)`}</Text>
+      <BarChart
+        style={styles.barChart}
+        data={barChartData}
+        width={screenWidth - 72}
+        height={220}
+        chartConfig={chartConfig}
+        fromZero={true}
+        yAxisLabel={'$'}
+        showBarTops={false}
+        withHorizontalLabels={true}
+        segments={2}
+      />
+
+      {tooltipPos.visible && (
+        <View style={[styles.tooltip, { top: tooltipPos.y, left: tooltipPos.x }]}>
+          <Text style={styles.tooltipText}>{tooltipPos.value}</Text>
+        </View>
+      )}
     </View>
-  );
+  </View>
+);
 };
 
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: '100%',
-    height: '100%'
-  },
 
-  tabContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 80,
-    borderRadius: 20,
-  },
+const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#fff',
+      paddingTop: 10, // Ensuring space from the status bar or navbar if any
+    },
+    tabContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 40,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      // backgroundColor: '#f0f0f0', // A light gray background color
+      borderRadius: 40,
+      marginHorizontal: 10, // Adding 10 units of margin on the left and right
+      // shadowColor: '#000',
+      // shadowOffset: { width: 0, height: 2 },
+      // shadowOpacity: 0.1,
+      // shadowRadius: 3,
+      // elevation: 5,
+      // borderWidth: 1,
+      // borderColor: 'black',
+    },
+    tab: {
+      paddingVertical: 10,
+      paddingHorizontal: 30,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginHorizontal: 4,
+    },
+    selectedTab: {
+      backgroundColor: 'blue',
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 1.5,
+      borderWidth: 1,
+      borderColor: 'black',
+    },
+    tabText: {
+      color: 'gray',
+      fontFamily: 'CustomFont-Regular',
+    },
+    selectedTabText: {
+      color: 'white',
+    },
   
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedTab: {
-    backgroundColor: '#ffffff',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.5,
-  },
-  tabText: {
-    color: 'gray',
-    fontFamily: 'CustomFont-Regular',
-  },
-  selectedTabText: {
-    color: 'blue',
-  },
+
   valueContainer: {
     alignItems: 'center',
     marginTop: 40,
@@ -325,6 +405,8 @@ const styles = StyleSheet.create({
   dateText: {
     fontFamily: 'CustomFont-Regular',
     color: 'gray',
+    fontSize: 14,
+
   },
   cameraButton: {
     position: 'absolute',
@@ -359,7 +441,7 @@ const styles = StyleSheet.create({
   quotaExceeded: {
     fontSize: 64,
     fontFamily: 'CustomFont-Bold',
-    color: 'red',
+    color: '#DC143C',
   },
 
   exceededContainer: {
@@ -370,7 +452,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   exceededBubble: {
-    backgroundColor: '#FF4136', 
+    backgroundColor: '#DC143C', 
     borderRadius: 20,
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -381,7 +463,7 @@ const styles = StyleSheet.create({
     shadowRadius: 1,
   },
   exceededArrow: {
-    backgroundColor: '#FF4136',
+    backgroundColor: '#DC143C',
     width: 10,
     height: 10,
     transform: [{ rotate: '45deg' }],
@@ -402,27 +484,92 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
   },
   graphSection: {
-    alignItems: 'center', // This centers the LineChart in the middle of the view
-    marginTop: 40, // You can adjust this to control the spacing
+    backgroundColor: 'white', // White background for the chart area
+    borderRadius: 16,
+    marginHorizontal: 20, // 20 pixels margin on each side
     marginBottom: 20,
+    padding: 16, 
+    alignItems: 'center', 
+    shadowColor: '#000',
+    // elevation: 5,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.3,
+    // shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: 'black',
+  },
+  squaresContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16, // Margin on sides of the container
+    marginTop: 60, // Space from the date or above component
+    marginBottom: 10, // Space before the graph section
+
+
+  },
+  square: {
+    flex: 1,
+    height: 80,
+    backgroundColor: 'white',
+    marginHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    // elevation: 5,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 2,
+    borderWidth: 1,
+    borderColor: 'black',
+  },
+  squareText: {
+    fontSize: 16,
+    color: 'gray',
+    fontFamily: 'CustomFont-Regular'
+  },
+
+  // graphSection: {
+  //   backgroundColor: 'white',
+  //   borderRadius: 16,
+  //   borderWidth: 1,
+  //   borderColor: 'black',
+  //   marginTop: 10, // 10 units of space between the squares and the graph
+  //   padding: 16,
+  //   alignItems: 'center',
+  //   shadowColor: '#000',
+  //   elevation: 5,
+  //   shadowOffset: { width: 0, height: 4 },
+  //   shadowOpacity: 0.3,
+  //   shadowRadius: 4,
+  // },
+  chartTitleText: {
+    fontSize: 16,
+    color: '#0c0212',
+    fontFamily: 'CustomFont-Bold',
+    marginBottom: 10,
+  },
+  barChart: {
+    marginVertical: 8,
+    borderRadius: 16,
+    height: 230,
   },
   tooltip: {
     position: 'absolute',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Making background darker for better readability
     padding: 8,
-    borderRadius: 4,
-    top: 10, // you can adjust this value as needed
-    transform: [{ translateX: -40 }], 
+    borderRadius: 6,
+    top: 10, // Adjust this to position the tooltip above the bar
+    transform: [{ translateX: -50 }], // Centering tooltip over the bar
+    zIndex: 1 // Ensure it is above all other components
   },
   tooltipText: {
     color: 'white',
     fontFamily: 'CustomFont-Regular',
+    fontSize: 14, // Adjust size for better readability
+    textAlign: 'center' // Centering text inside the tooltip
   },
-
-
+  
 });
-
-
-
-
-

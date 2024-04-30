@@ -6,6 +6,20 @@ import * as Font from 'expo-font';
 import HomeScreen from './HomeScreen';
 import TransactionScreen from './TransactionScreen';
 import CameraScreen from './CameraScreen';
+import * as Haptics from 'expo-haptics';
+import { createStackNavigator } from '@react-navigation/stack';
+import PhotoReviewScreen from './PhotoReviewScreen'; // Make sure this import is correct
+
+const CameraStack = createStackNavigator();
+
+function CameraStackNavigator() {
+  return (
+    <CameraStack.Navigator screenOptions={{ headerShown: false }}>
+      <CameraStack.Screen name="Camera" component={CameraScreen} />
+      <CameraStack.Screen name="PhotoReview" component={PhotoReviewScreen} />
+    </CameraStack.Navigator>
+  );
+}
 
 const Tab = createBottomTabNavigator();
 
@@ -52,7 +66,7 @@ function App() {
         />
         <Tab.Screen 
           name="Scan" 
-          component={CameraScreen} 
+          component={CameraStackNavigator} // Use the Stack Navigator here
           options={{
             tabBarButton: (props) => <TabBarButton {...props} label="Scan" />,
             tabBarStyle: { ...styles.tabBar, display: 'none' } // Explicitly hide the tabBar for this screen
@@ -66,6 +80,7 @@ function App() {
             tabBarStyle: styles.tabBar
           }}
         />
+        
       </Tab.Navigator>
     </NavigationContainer>
   );
@@ -73,13 +88,18 @@ function App() {
 
 const TabBarButton = ({ label, accessibilityState, onPress }) => {
   const focused = accessibilityState.selected;
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Trigger medium haptic feedback
+    onPress(); // Call the original onPress function
+  };
+
   return (
-    <TouchableOpacity onPress={onPress} style={focused ? styles.buttonFocused : styles.button}>
+    <TouchableOpacity onPress={handlePress} style={focused ? styles.buttonFocused : styles.button}>
       <Text style={focused ? styles.textFocused : styles.text}>{label}</Text>
     </TouchableOpacity>
   );
 };
-
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: 'white',

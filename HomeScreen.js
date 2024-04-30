@@ -6,13 +6,13 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
 import GestureRecognizer from 'react-native-swipe-gestures';
+import { GestureHandlerRootView} from 'react-native-gesture-handler'
 import * as Haptics from 'expo-haptics';
 import { launchCamera } from 'react-native-image-picker';
 import Svg, { Circle } from 'react-native-svg';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-
 
 //dimension width
 const screenWidth = Dimensions.get('window').width;
@@ -107,8 +107,6 @@ export default function HomeScreen({ navigation }) {
         Weekly: 500,
         Monthly: 1500
     };
-
-
   
   
     const [selectedTab, setSelectedTab] = useState('Daily');
@@ -157,13 +155,6 @@ export default function HomeScreen({ navigation }) {
   };
   
   const barChartData = updatedBarChartData();
-  
-
-
-
-  
-    
-
     // datapoint click
 // This function is triggered when a bar is tapped
   const handleDataPointClick = (data) => {
@@ -391,7 +382,6 @@ const styles = StyleSheet.create({
     selectedTabText: {
       color: 'white',
     },
-  
 
   valueContainer: {
     alignItems: 'center',
@@ -554,7 +544,7 @@ const styles = StyleSheet.create({
   barChart: {
     marginVertical: 8,
     borderRadius: 16,
-    height: 230,
+    height: 240,
   },
   tooltip: {
     position: 'absolute',

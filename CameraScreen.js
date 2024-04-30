@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, Image, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, Image, Alert, Modal } from 'react-native';
 import { Camera } from 'expo-camera';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system';
-import axios from 'axios';
+import * as Haptics from 'expo-haptics';
+import PhotoReviewScreen from './PhotoReviewScreen';
 
 const CameraScreen = () => {
   const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
-  const [flashMode, setFlashMode] = useState(Camera.Constants.FlashMode.off);
+  const [flashMode, setFlashMode] = useState(Camera.Constants.FlashMode.off); // State to track flash mode
+  const [cameraType, setCameraType] = useState(Camera.Constants.Type.back); // State to track camera type
   const cameraRef = useRef(null);
   const isFocused = useIsFocused();
   const navigation = useNavigation();
@@ -20,31 +21,83 @@ const CameraScreen = () => {
     })();
   }, []);
 
+  const [photo, setPhoto] = useState(null);
+
   const handlePressShutter = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (cameraRef.current) {
-      let photo = await cameraRef.current.takePictureAsync();
-      console.log(photo);
-      processReceipt(photo.uri);
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true });
+      setPhoto(photo);
+    } else {
+      Alert.alert('Camera not ready', 'Please wait for the camera to be ready.');
     }
   };
 
-  const processReceipt = async (photoUri) => {
-    try {
-      let photoBase64 = await FileSystem.readAsStringAsync(photoUri, { encoding: 'base64' });
-      let res = await axios.post('https://ocr.asprise.com/api/v1/receipt', {
-        'api_key': '<Your OCR Service API Key>',
-        'recognizer': 'auto',
-        'ref_no': 'oct_python_123',
-        'file': `data:image/jpg;base64,${photoBase64}`,
-      });
+  const handleRetry = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPhoto(null); // Clear the photo and return to the camera view
+  };
 
-      let receiptData = res.data['receipts'][0];
-      console.log(receiptData);
-      // Further processing...
+  const handleUsePhoto = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const localUri = photo.uri;
+      const filename = localUri.split('/').pop();
+      const newPath = FileSystem.documentDirectory + filename;
+  
+      await FileSystem.moveAsync({
+        from: localUri,
+        to: newPath,
+      });
+  
+      const data = new FormData();
+      data.append('image', {
+        uri: newPath,
+        name: 'receipt.jpg',
+        type: 'image/jpeg',
+      });
+      data.append('description', 'This is a test description');
+  
+      const response = await fetch('http://192.168.50.240:5000/process_receipt', {
+        method: 'POST',
+        body: data,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
+      if (response.ok) {
+        const jsonResponse = await response.json();
+        console.log(jsonResponse);
+        Alert.alert('Success', 'Receipt processed successfully');
+        setPhoto(null);
+        navigation.navigate('PhotoReview', { ocrData: jsonResponse }); // Make sure this matches the screen name in the stack navigator
+      } else {    
+        console.error('Failed to process the receipt.');
+        Alert.alert('Error', 'Failed to process the receipt.');
+      }
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'Failed to process the receipt.');
+      console.error('Error handling in handleUsePhoto:', error);  
+      Alert.alert('Error', error.message);
     }
+  };
+  
+  const toggleFlash = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setFlashMode(
+      flashMode === Camera.Constants.FlashMode.off
+        ? Camera.Constants.FlashMode.on
+        : Camera.Constants.FlashMode.off
+    );
+  };
+
+  const toggleCamera = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCameraType(
+      cameraType === Camera.Constants.Type.back
+        ? Camera.Constants.Type.front
+        : Camera.Constants.Type.back
+    );
   };
 
   if (hasPermission === null) {
@@ -54,39 +107,58 @@ const CameraScreen = () => {
     return <Text>No access to camera</Text>;
   }
 
-  if (!isFocused) {
-    return null;
-  }
-
   return (
     <SafeAreaView style={styles.container}>
-      <Camera style={styles.camera} type={type} flashMode={flashMode} ref={cameraRef}>
-        <View style={styles.headerContainer}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <Image source={require('./assets/cross.png')} style={styles.icon} />
-          </TouchableOpacity>
-
-          <Text style={styles.headerText}>Scan your receipts</Text>
-
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => setFlashMode(
-              flashMode === Camera.Constants.FlashMode.off
-              ? Camera.Constants.FlashMode.on
-              : Camera.Constants.FlashMode.off
-            )}>
-            <Image
-              source={flashMode === Camera.Constants.FlashMode.off ? require('./assets/flash_off.png') : require('./assets/flash_on.png')}
-              style={styles.icon}
-            />
-          </TouchableOpacity>
+      <View style={styles.header}>
+      <TouchableOpacity onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); // Use Heavy impact for significant actions
+            navigation.goBack();
+        }}>
+          <Image style={styles.icon} source={require('./assets/cross.png')} />
+        </TouchableOpacity>
+        <Text style={styles.headerText}>Scan your receipts</Text>
+        <TouchableOpacity onPress={toggleFlash}>
+          <Image style={styles.icon} source={flashMode === Camera.Constants.FlashMode.off ? require('./assets/flash_off.png') : require('./assets/flash_on.png')} />
+        </TouchableOpacity>
+      </View>
+      {!photo && isFocused && (
+        <View style={styles.cameraContainer}>
+          <Camera style={styles.camera} type={cameraType} ref={cameraRef} flashMode={flashMode}>
+          </Camera>
         </View>
-        <View style={styles.receiptBorder} />
-        <View style={styles.shutterButtonContainer}>
+      )}
+      <View style={styles.footer}>
+        <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.shutterButton} onPress={handlePressShutter}>
+            <View style={styles.innerCircle} /> 
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.reverseButton} onPress={toggleCamera}>
+            <Image style={styles.reverseIcon} source={require('./assets/reverse.png')} />
           </TouchableOpacity>
         </View>
-      </Camera>
+      </View>
+          {photo && (
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={!!photo}
+        onRequestClose={() => setPhoto(null)}
+      >
+        <View style={styles.previewContainer}>
+        <Text style={styles.previewText}>Preview of your captured photo!</Text>
+          <Image style={styles.previewImage} source={{ uri: photo.uri }} />
+          <View style={styles.previewButtonContainer}>
+            <TouchableOpacity style={[styles.button, styles.retryButton]} onPress={handleRetry}>
+              <Text style={styles.buttonText}>Retry</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.usePhotoButton]} onPress={handleUsePhoto}>
+              <Text style={styles.buttonText}>Use Photo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    )}
+
     </SafeAreaView>
   );
 };
@@ -96,70 +168,136 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'black',
   },
+  cameraContainer: {
+    flex: 1,
+    marginVertical: 20, 
+  },
   camera: {
     flex: 1,
-    justifyContent: 'space-between',
   },
-
-  headerContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 30,
-  },
-  shutterButtonContainer: {
-    alignSelf: 'center',
-    marginBottom: 40,
-    width: 85,
-    height: 85,
-    borderRadius: 42.5,
-    backgroundColor: 'transparent', 
-    borderWidth: 3, 
-    borderColor: 'white', 
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 25,
+    marginTop: 50,
+    marginBottom: 10,
+    backgroundColor: 'black',
   },
-  shutterButton: {
+  footer: {
+    bottom: 20, 
+    marginTop: 30,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    backgroundColor: 'black',
+  },
+
+  icon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+  },
+  reverseIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+  },
+  iconShutter: {
     width: 70,
     height: 70,
-    backgroundColor: 'white',
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  receiptBorder: {
-    position: 'absolute',
-    left: 30,
-    right: 30,
-    top: 120,
-    bottom: 170,
-    borderWidth: 2,
-    borderColor: 'blue',
-    borderRadius: 10,
-    borderStyle: 'dotted' 
-  },
-  icon: {
-    width: 24, 
-    height: 24,  
-    resizeMode: 'contain'
-  },
-
-  headerContainer: {
-    marginTop: 50,
-    marginHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  shutterButton: {
     alignItems: 'center',
   },
   headerText: {
-    color: '#DAA520',
+    color: 'yellow',
     fontSize: 14,
     fontFamily: 'CustomFont-Regular',
   },
-
-  iconButton: {
-    padding: 10,
-    borderRadius: 20,
+  previewContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white', 
+    padding: 20,
+    borderRadius: 20, // Adding rounded corners to the container as well
   },
+  previewImage: {
+    flex: 1,
+    width: '90%', 
+    maxHeight: '70%', // Adjusting the max height
+    borderRadius: 20, // Adding rounded corners to the image
+    borderWidth: 1,
+    borderColor: 'black',
+  },
+  previewButtonContainer: {
+    width: '100%', 
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingBottom: 10, // Padding at the bottom
+    
+  },
+  button: {
+    borderRadius: 30, // Rounded corners
+    paddingVertical: 10, // Vertical padding
+    paddingHorizontal: 20, // Horizontal padding
+    marginHorizontal: 10, // Margin between buttons
+    marginVertical: 20, // Margin between buttons
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 100,
+    backgroundColor: 'blue', 
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1.5,
+    borderWidth: 1,
+    borderColor: 'black',
+  },
+  buttonText: {
+    color: 'white', 
+    fontFamily: 'CustomFont-Regular',
+    fontSize: 14,
+  },
+  shutterButton: {
+    width: 80, 
+    height: 80,
+    backgroundColor: 'transparent', 
+    borderRadius: 100,
+    borderWidth: 2,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  innerCircle: {
+    width: 70,
+    height: 70,
+    backgroundColor: 'white',
+    borderRadius: 100,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  reverseButton: {
+    position: 'absolute',
+    left: 120,
+    padding: 10,
+    backgroundColor: 'rgba(128, 128, 128, 0.5)',
+    borderRadius: 100
+  },
+  previewText: {
+    color: 'blue',
+    fontFamily: 'CustomFont-Regular',
+    fontSize: 16,
+    marginBottom: 10,
+  },  
 });
 
 export default CameraScreen;

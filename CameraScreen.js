@@ -69,9 +69,14 @@ const CameraScreen = () => {
       if (response.ok) {
         const jsonResponse = await response.json();
         console.log(jsonResponse);
+
+        const ocrData = {
+          ...jsonResponse.extracted_text,
+        };
+
         Alert.alert('Success', 'Receipt processed successfully');
         setPhoto(null);
-        navigation.navigate('PhotoReview', { ocrData: jsonResponse }); // Make sure this matches the screen name in the stack navigator
+        navigation.navigate('PhotoReview', { ocrData: ocrData }); // Pass only serializable data
       } else {    
         console.error('Failed to process the receipt.');
         Alert.alert('Error', 'Failed to process the receipt.');

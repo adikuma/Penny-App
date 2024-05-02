@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import CustomAlert from './CustomAlert'; // Import your CustomAlert component
+import CustomAlert from './CustomAlert'; 
+import db from './firebaseConfig'; 
 
 const PhotoReviewScreen = ({ route, navigation }) => {
   const initialData = route.params.ocrData || { store_name: '', date: '', line_items: [] };
@@ -21,6 +22,7 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     setOcrData({ ...ocrData, line_items: updatedItems });
   };
 
+  //b3Bqdvau7KrHZHAWkN1p
   const formatPrice = (price) => parseFloat(price.replace(/[$,]/g, '')) || 0;
 
   const incrementQuantity = async (index) => {
@@ -59,6 +61,29 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     const gst = subtotal * (gstPercentage / 100);
     return (subtotal + gst).toFixed(2);
   };
+
+  const saveReceiptToFirestore = async () => {
+    try {
+      await db.collection('receipts').add({
+        storeName: ocrData.store_name,
+        date: ocrData.date,
+        category: selectedCategory,
+        lineItems: ocrData.line_items.map(item => ({
+          itemName: item.item_name,
+          itemQuantity: item.item_quantity,
+          itemValue: item.item_value
+        })),
+        total: calculateTotal(),
+        imageUrl: '', // Add an imageURL if applicable
+      });
+      Alert.alert("Success", "Receipt saved successfully");
+      navigation.goBack();  // Optionally navigate back
+    } catch (error) {
+      console.error("Error saving to Firestore: ", error);
+      Alert.alert("Error", "Failed to save the receipt.");
+    }
+  };
+  
 
   return (
     <View style={styles.container}>
@@ -109,7 +134,7 @@ const PhotoReviewScreen = ({ route, navigation }) => {
               </View>
               <TextInput
                 style={styles.price}
-                value={`$${(formatPrice(item.item_value) * item.item_quantity).toFixed(2)}`}
+                value={`$${(parseFloat(item.item_value.replace(/[$,]/g, '')) * item.item_quantity).toFixed(2)}`}
                 onChangeText={(text) => updateLineItem(index, 'item_value', text.replace(/[$,]/g, ''))}
                 keyboardType="numeric"
               />
@@ -127,8 +152,8 @@ const PhotoReviewScreen = ({ route, navigation }) => {
         <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonText}>Discard</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => {/* Add save functionality */}}>
-          <Text style={styles.buttonText}>Save</Text>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText} onPress={saveReceiptToFirestore}>Save</Text>
         </TouchableOpacity>
       </View>
       <CustomAlert
@@ -141,7 +166,6 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     </View>
   );
 };
-
 
 
 

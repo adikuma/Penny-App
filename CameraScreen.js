@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import PhotoReviewScreen from './PhotoReviewScreen';
 
+
 const CameraScreen = () => {
   const [hasPermission, setHasPermission] = useState(null);
   const [flashMode, setFlashMode] = useState(Camera.Constants.FlashMode.off); // State to track flash mode

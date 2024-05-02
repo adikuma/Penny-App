@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import * as Haptics from 'expo-haptics';
 import CustomAlert from './CustomAlert'; // Import your CustomAlert component
 
 const PhotoReviewScreen = ({ route, navigation }) => {
-  const initialData = route.params.ocrData;
+  const initialData = route.params.ocrData || { store_name: '', date: '', line_items: [] };
   const [ocrData, setOcrData] = useState(initialData);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [isDeleteAlertVisible, setDeleteAlertVisible] = useState(false);
   const [deleteItemIndex, setDeleteItemIndex] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const updateField = (key, value) => {
     setOcrData({ ...ocrData, [key]: value });
@@ -37,7 +37,6 @@ const PhotoReviewScreen = ({ route, navigation }) => {
       setOcrData({ ...ocrData, line_items: updatedItems });
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } else {
-      // Show confirmation dialog before deleting the item
       setDeleteItemIndex(index);
       setDeleteAlertVisible(true);
     }
@@ -50,9 +49,9 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     setDeleteAlertVisible(false);
   };
 
-  const onPickerChange = async (itemValue) => {
-    setGstPercentage(parseInt(itemValue));
-    await Haptics.selectionAsync();
+  const addItem = () => {
+    const newItem = { item_name: '', item_value: '0', item_quantity: 1 };
+    setOcrData({ ...ocrData, line_items: [...ocrData.line_items, newItem] });
   };
 
   const calculateTotal = () => {
@@ -61,45 +60,69 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     return (subtotal + gst).toFixed(2);
   };
 
-
   return (
-    <ScrollView style={styles.container}>
-      <TextInput
-        style={styles.title}
-        value={ocrData.store_name}
-        onChangeText={(text) => updateField('store_name', text)}
-      />
-      <TextInput
-        style={styles.date}
-        value={ocrData.date}
-        onChangeText={(text) => updateField('date', text)}
-      />
-      <View style={styles.line} /> 
-      {ocrData.line_items.map((item, index) => (
-        <View key={index} style={styles.itemContainer}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer}>
+        <View style={styles.invoice_container}>
           <TextInput
-            style={styles.item}
-            value={item.item_name}
-            onChangeText={(text) => updateLineItem(index, 'item_name', text)}
+            style={styles.title}
+            value={ocrData.store_name}
+            onChangeText={(text) => updateField('store_name', text)}
           />
-          <View style={styles.quantityContainer}>
-            <TouchableOpacity onPress={() => decrementQuantity(index)}>
-              <Text style={styles.quantityButton}>-</Text>
-            </TouchableOpacity>
-            <Text style={styles.quantity}>{item.item_quantity}</Text>
-            <TouchableOpacity onPress={() => incrementQuantity(index)}>
-              <Text style={styles.quantityButton}>+</Text>
-            </TouchableOpacity>
+          <TextInput
+            style={styles.date}
+            value={ocrData.date}
+            onChangeText={(text) => updateField('date', text)}
+          />
+          <View style={styles.categoryContainer}>
+            {['Home', 'Personal', 'Food'].map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === category ? styles.selectedCategory : {}
+                ]}
+                onPress={() => setSelectedCategory(category)}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  selectedCategory === category ? styles.selectedText : {}
+                ]}>{category}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <TextInput
-            style={styles.price}
-            value={`$${(formatPrice(item.item_value) * item.item_quantity).toFixed(2)}`}
-            onChangeText={(text) => updateLineItem(index, 'item_value', text.replace(/[$,]/g, ''))}
-            keyboardType="numeric"
-          />
+          {ocrData.line_items.map((item, index) => (
+            <View key={index} style={styles.itemContainer}>
+              <TextInput
+                style={styles.item}
+                value={item.item_name}
+                onChangeText={(text) => updateLineItem(index, 'item_name', text)}
+              />
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity onPress={() => decrementQuantity(index)}>
+                  <Text style={styles.quantityButton}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.quantity}>{item.item_quantity}</Text>
+                <TouchableOpacity onPress={() => incrementQuantity(index)}>
+                  <Text style={styles.quantityButton}>+</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.price}
+                value={`$${(formatPrice(item.item_value) * item.item_quantity).toFixed(2)}`}
+                onChangeText={(text) => updateLineItem(index, 'item_value', text.replace(/[$,]/g, ''))}
+                keyboardType="numeric"
+              />
+            </View>
+          ))}
+          <View style={styles.totalContainer}>
+            <TouchableOpacity style={styles.addItemButton} onPress={addItem}>
+              <Text style={styles.addItemText}>+</Text>
+            </TouchableOpacity>
+            <Text style={styles.total}>Total: ${calculateTotal()}</Text>
+          </View>
         </View>
-      ))}
-      <Text style={styles.total}>Total: ${calculateTotal()}</Text>
+      </ScrollView>
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonText}>Discard</Text>
@@ -115,18 +138,19 @@ const PhotoReviewScreen = ({ route, navigation }) => {
         onCancel={() => setDeleteAlertVisible(false)}
         onConfirm={() => deleteItem(deleteItemIndex)}
       />
-    </ScrollView>
+    </View>
   );
 };
+
+
 
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
-    padding: 20,
-    marginTop: 40,
-    overflow: 'scroll'
+    // padding: 20,
+    // marginTop: 40,
   },
   title: {
     fontSize: 48,
@@ -135,14 +159,12 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 14,
-    marginBottom: 20,
     fontFamily: 'CustomFont-Regular',
     color: 'grey'
   },
   itemContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
   },
   item: {
     flex: 3,
@@ -162,23 +184,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     padding: 10
   },
-
   price: {
     flex: 1,
     textAlign: 'right',
     fontFamily: 'CustomFont-Bold',
   },
   total: {
-    fontSize: 18,
+    fontSize: 14,
     fontFamily: 'CustomFont-Bold',
     color: 'blue',
-    marginTop: 20,
     textAlign: 'right',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 10,
+    backgroundColor: 'blue'
   },
   button: {
     backgroundColor: 'blue',
@@ -191,7 +212,85 @@ const styles = StyleSheet.create({
     fontFamily: 'CustomFont-Bold',
     fontSize: 14,
   },
+  invoice_container:{
+    marginTop: 40,
+    padding: 20
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 10,
+    marginTop: 10,
+    padding: 10,
+    fontFamily: 'CustomFont-Regular',
+  },
+  categoryButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    marginHorizontal: 5,
+    borderRadius: 40,
+    elevation: 3,
+    shadowColor: '#000',
+    backgroundColor: 'white',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 1,
+    borderWidth: 1,
+    borderColor: 'black',
+  },
+  categoryText: {
+    fontFamily: 'CustomFont-Regular',
+    fontSize: 14,
+    color: 'black',
+  },
+  closeIcon: {
+    fontFamily: 'CustomFont-Regular',
+    fontSize: 14,
+    color: 'red',
+    paddingLeft: 10,
+  },
+  selectedCategory: {
+    backgroundColor: 'blue',
+    color: 'white',
+  },
+
+  selectedText: {
+    color: 'white',
+  },
+
+    line: {
+    height: 1,
+    backgroundColor: 'grey',
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  addItemButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'blue',
+    alignItems: 'center', 
+    alignSelf: 'center', 
+    justifyContent: 'center',  // Ensure the content is centered vertically
+  },
+  addItemText: {
+    color: 'white',
+    fontSize: 18,
+    lineHeight: 22,  
+    textAlign: 'center', 
+    textAlignVertical: 'center', 
+  },
+
+
 });
+
 const alertStyles = StyleSheet.create({
   container: {
     borderRadius: 10,
@@ -200,19 +299,19 @@ const alertStyles = StyleSheet.create({
   },
   title: {
     fontFamily: 'CustomFont-Bold',
-    fontSize: 18,
+    fontSize: 14,
     color: 'blue',
   },
   message: {
     fontFamily: 'CustomFont-Regular',
-    fontSize: 16,
+    fontSize: 14,
     color: 'black',
   },
   button: {
     fontFamily: 'CustomFont-Bold',
     color: 'blue',
   },
+
 });
 
 export default PhotoReviewScreen;
-

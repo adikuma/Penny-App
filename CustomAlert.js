@@ -1,7 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 const CustomAlert = ({ visible, title, message, onCancel, onConfirm }) => {
+
+  useEffect(() => {
+    async function loadFonts() {
+      await Font.loadAsync({
+        'CustomFont-Regular': require('./assets/fonts/LeagueMono-CondensedLight.ttf'),
+        'CustomFont-Bold': require('./assets/fonts/LeagueMono-CondensedSemiBold.ttf'),
+      });
+      setFontsLoaded(true);
+    }
+    loadFonts();
+  }, []);
+
   return (
     <Modal
       animationType="slide"
@@ -31,7 +44,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 1,
   },
   modalView: {
     backgroundColor: 'white',
@@ -41,11 +59,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 10,
+    fontFamily: 'CustomFont-Bold',
+
   },
   message: {
     marginBottom: 20,
+    fontFamily: 'CustomFont-Regular',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -56,11 +76,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 30,
     marginHorizontal: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 1,
+    borderWidth: 1,
+    borderColor: 'black',
   },
   buttonText: {
     color: 'white',
-    fontWeight: 'bold',
     fontSize: 14,
+    fontFamily: 'CustomFont-Regular',
   },
 });
 

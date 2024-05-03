@@ -1,51 +1,47 @@
+require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const { MongoClient } = require('mongodb');
 
 const app = express();
-const port = process.env.PORT || 5000;
-
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// MongoDB URI
-const dbUsername = 'adityakuma0308';
-const dbPassword = 'zwVhRygCQZArhQhc';
-const clusterUrl = 'cluster0.l3f9wif.mongodb.net';
-const dbName = 'Project0';
-const db = `mongodb+srv://${dbUsername}:${dbPassword}@${clusterUrl}/${dbName}?retryWrites=true&w=majority`;
-
-// Connect to MongoDB
-mongoose.connect(db, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("MongoDB connected"))
-    .catch(err => console.log(err));
-
-// Receipt schema
-const receiptSchema = new mongoose.Schema({
-    storeName: String,
-    date: String,
-    category: String,
-    imageUrl: String,
-    lineItems: [{ itemName: String, itemValue: String, itemQuantity: Number }],
-    total: String
-});
-
-const Receipt = mongoose.model('Receipt', receiptSchema);
-
-// Route to handle POST requests to /receipts
-app.post('/receipts', async (req, res) => {
+app.use(express.json()); // Middleware to parse JSON
+//mongodb+srv://adityakuma0308:7CLaE1M7ZuZ2IKOr@finances.ikebao9.mongodb.net/
+const uri = 'mongodb+srv://adityakuma0308:7CLaE1M7ZuZ2IKOr@finances.ikebao9.mongodb.net/'
+async function startServer() {
+    let db;
     try {
-        const newReceipt = new Receipt(req.body);
-        await newReceipt.save();
-        res.status(201).json({ message: 'Receipt saved successfully!', receipt: newReceipt });
+        const client = await MongoClient.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+        db = client.db('Finances'); // Ensure this matches your actual database name
+        console.log('Connected to Database');
+
+        app.post('/addReceipt', async (req, res) => {
+            try {
+                const receiptsCollection = db.collection('receipts');
+                const result = await receiptsCollection.insertOne(req.body);
+                res.status(200).json(result);
+            } catch (error) {
+                console.error('Error inserting data:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        const PORT = process.env.PORT || 3000;
+        app.listen(PORT, () => {
+            console.log(`Server listening on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to connect to MongoDB', err);
+    }
+}
+
+app.get('/getTransactions', async (req, res) => {
+    try {
+        const transactions = await db.collection('transactions').find({}).toArray(); // Ensure the collection name is correct
+        res.status(200).json(transactions);
     } catch (error) {
-        console.error('Error saving receipt:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Failed to retrieve transactions:', error);
+        res.status(500).json({ message: 'Failed to retrieve transactions' });
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+
+startServer();

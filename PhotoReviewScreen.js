@@ -1,28 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import CustomAlert from './CustomAlert'; 
-import db from './firebaseConfig'; 
+import axios from 'axios';
 
 const PhotoReviewScreen = ({ route, navigation }) => {
+  const normalizeLineItems = data => {
+    if (Array.isArray(data.line_items)) {
+      return data.line_items;
+    } else if (typeof data.line_items === 'object' && data.line_items !== null) {
+      return [data.line_items];
+    }
+    return [];
+  };
+
   const initialData = route.params.ocrData || { store_name: '', date: '', line_items: [] };
+  initialData.line_items = normalizeLineItems(initialData);
   const [ocrData, setOcrData] = useState(initialData);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [isDeleteAlertVisible, setDeleteAlertVisible] = useState(false);
   const [deleteItemIndex, setDeleteItemIndex] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [date, setDate] = useState(new Date());  
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [description, setDescription] = useState('');
 
   const updateField = (key, value) => {
     setOcrData({ ...ocrData, [key]: value });
   };
 
-  const updateLineItem = (index, key, value) => {
-    const updatedItems = [...ocrData.line_items];
-    updatedItems[index][key] = value;
-    setOcrData({ ...ocrData, line_items: updatedItems });
-  };
-
-  //b3Bqdvau7KrHZHAWkN1p
   const formatPrice = (price) => parseFloat(price.replace(/[$,]/g, '')) || 0;
 
   const incrementQuantity = async (index) => {
@@ -44,6 +51,12 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     }
   };
 
+  const updateLineItem = (index, key, value) => {
+    const updatedItems = [...ocrData.line_items];
+    updatedItems[index][key] = value;
+    setOcrData({ ...ocrData, line_items: updatedItems });
+  };
+  
   const deleteItem = (index) => {
     const updatedItems = [...ocrData.line_items];
     updatedItems.splice(index, 1);
@@ -51,6 +64,9 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     setDeleteAlertVisible(false);
   };
 
+  //7CLaE1M7ZuZ2IKOr
+  //adityakuma0308
+  
   const addItem = () => {
     const newItem = { item_name: '', item_value: '0', item_quantity: 1 };
     setOcrData({ ...ocrData, line_items: [...ocrData.line_items, newItem] });
@@ -62,43 +78,88 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     return (subtotal + gst).toFixed(2);
   };
 
-  const saveReceiptToFirestore = async () => {
+  const saveReceiptToMongoDB = async () => {
     try {
-      await db.collection('receipts').add({
+      const result = await axios.post('http://192.168.50.240:3000/addReceipt', {
         storeName: ocrData.store_name,
         date: ocrData.date,
         category: selectedCategory,
+        description: description, // Include the description here
         lineItems: ocrData.line_items.map(item => ({
           itemName: item.item_name,
           itemQuantity: item.item_quantity,
           itemValue: item.item_value
         })),
         total: calculateTotal(),
-        imageUrl: '', // Add an imageURL if applicable
+        imageUrl: '', // Optional image URL
       });
       Alert.alert("Success", "Receipt saved successfully");
-      navigation.goBack();  // Optionally navigate back
+      navigation.navigate('History');  // Navigate to the TransactionScreen
     } catch (error) {
-      console.error("Error saving to Firestore: ", error);
+      console.error("Error saving to MongoDB: ", error);
       Alert.alert("Error", "Failed to save the receipt.");
     }
+  };  
+  
+  //date picker logic
+  const onChangeDate = (event, selectedDate) => {
+    const currentDate = selectedDate || date;
+    setShowDatePicker(Platform.OS === 'ios');
+    setDate(currentDate);
+    const formattedDate = currentDate.toLocaleDateString('en-GB', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    updateField('date', formattedDate);
   };
   
+  useEffect(() => {
+    // Automatically set the date to today's date in the desired format when the component mounts
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-GB', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    updateField('date', formattedDate);
+  }, []);
+  
+  const displayDatePicker = () => {
+    setShowDatePicker(true);
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.invoice_container}>
-          <TextInput
-            style={styles.title}
-            value={ocrData.store_name}
-            onChangeText={(text) => updateField('store_name', text)}
-          />
-          <TextInput
-            style={styles.date}
-            value={ocrData.date}
-            onChangeText={(text) => updateField('date', text)}
-          />
+        <TextInput
+          style={styles.title}
+          value={ocrData.store_name}
+          onChangeText={(text) => updateField('store_name', text)}
+          multiline={true}  // Allows multiple lines of input
+          placeholder="Enter Title Here"  // Optional: Placeholder if needed
+        />
+
+          <View style={styles.descriptionContainer}>
+            <TextInput
+              style={styles.descriptionInput}
+              onChangeText={setDescription}
+              value={description}
+              placeholder="Enter invoice description (Optional)"
+              multiline={true}
+              numberOfLines={2} 
+            />
+          </View>
+          <TouchableOpacity onPress={displayDatePicker} style={styles.datePickerButton}>
+            <Text style={styles.datePickerText}>{ocrData.date || 'Set Date'}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              testID="dateTimePicker"
+              value={date}
+              mode="date"
+              is24Hour={true}
+              display="default"
+              onChange={onChangeDate}
+            />
+          )}
           <View style={styles.categoryContainer}>
             {['Home', 'Personal', 'Food'].map((category) => (
               <TouchableOpacity
@@ -146,14 +207,15 @@ const PhotoReviewScreen = ({ route, navigation }) => {
             </TouchableOpacity>
             <Text style={styles.total}>Total: ${calculateTotal()}</Text>
           </View>
+
         </View>
       </ScrollView>
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonText}>Discard</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText} onPress={saveReceiptToFirestore}>Save</Text>
+        <TouchableOpacity style={styles.button} onPress={saveReceiptToMongoDB}>
+          <Text style={styles.buttonText}>Save</Text>
         </TouchableOpacity>
       </View>
       <CustomAlert
@@ -165,22 +227,25 @@ const PhotoReviewScreen = ({ route, navigation }) => {
       />
     </View>
   );
+  
 };
-
 
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
-    // padding: 20,
-    // marginTop: 40,
+
   },
   title: {
-    fontSize: 48,
+    fontSize: 36,
     color: 'blue',
     fontFamily: 'CustomFont-Bold',
-  },
+    textAlign: 'left',  
+    marginTop: 0,
+    marginBottom: 0,  
+  }, 
+  
   date: {
     fontSize: 14,
     fontFamily: 'CustomFont-Regular',
@@ -312,6 +377,19 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center', 
   },
 
+  datePickerText:{
+    fontFamily: 'CustomFont-Regular',    
+    color: 'grey'
+  },
+descriptionContainer: {
+
+},
+descriptionInput: {
+  borderRadius: 5,
+  fontFamily: 'CustomFont-Regular',    
+  fontSize: 14,
+  color: 'blue'
+},
 
 });
 

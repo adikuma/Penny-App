@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { FlatList } from 'react-native';
 import { launchCamera } from 'react-native-image-picker';
 import { NavigationContainer } from '@react-navigation/native';
+import axios from 'axios';
 
 const data = {
   Daily: ['$156.28', '$162.47', '$174.52', '$180.66', '$195.85'],
@@ -145,7 +146,21 @@ export default function App() {
     blurAnim.setValue(blurOpacity);
   };
 
-
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const response = await axios.get('http://192.168.50.240:3000/getTransactions');
+        if (response.status === 200) {
+          console.log("Fetched transactions:", response.data);
+          setTransactions(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch transactions:', error);
+      }
+    };
+    fetchTransactions();
+  }, []);
+  
   useEffect(() => {
     async function loadFonts() {
       await Font.loadAsync({
@@ -234,25 +249,21 @@ export default function App() {
       </View>
       <View style={styles.customLine} />
       <View style={styles.transactionList}>
-        <FlatList
-          data={combinedTransactions.filter((item) => {
-            const itemData = `${item.title.toUpperCase()} ${item.subtitle.toUpperCase()}`;
-            const searchData = searchQuery.toUpperCase();
-            return itemData.indexOf(searchData) > -1;
-          })}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <TransactionItem
-              title={item.title}
-              subtitle={item.subtitle}
-              amount={item.amount}
-              date={item.date}
-              avatarUrl={item.avatarUrl}
-            />
-          )}
-          onScroll={handleScroll}
-          scrollEventThrottle={1}
+      <FlatList
+  data={transactions}
+      keyExtractor={(item) => item._id ? item._id.toString() : Math.random().toString()}
+      renderItem={({ item }) => (
+        <TransactionItem
+          title={item.title}
+          subtitle={item.subtitle}
+          amount={item.amount}
+          date={item.date}
         />
+      )}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+          />
+
       </View>
     </View>
 

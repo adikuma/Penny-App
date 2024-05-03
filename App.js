@@ -9,8 +9,19 @@ import CameraScreen from './CameraScreen';
 import * as Haptics from 'expo-haptics';
 import { createStackNavigator } from '@react-navigation/stack';
 import PhotoReviewScreen from './PhotoReviewScreen'; // Make sure this import is correct
+import TransactionDetail from './TransactionDetail';  // Make sure to import TransactionDetail
 
 const CameraStack = createStackNavigator();
+const TransactionStack = createStackNavigator();  // Create a stack for transactions
+
+function TransactionStackNavigator() {
+  return (
+      <TransactionStack.Navigator screenOptions={{ headerShown: false }}>
+          <TransactionStack.Screen name="TransactionList" component={TransactionScreen} />
+          <TransactionStack.Screen name="TransactionDetail" component={TransactionDetail} />
+      </TransactionStack.Navigator>
+  );
+}
 
 function CameraStackNavigator() {
   return (
@@ -74,7 +85,7 @@ function App() {
         />
         <Tab.Screen 
           name="History" 
-          component={TransactionScreen} 
+          component={TransactionStackNavigator}  // Use the new Transaction Stack here
           options={{
             tabBarButton: (props) => <TabBarButton {...props} label="History" />,
             tabBarStyle: styles.tabBar

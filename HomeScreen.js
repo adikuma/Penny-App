@@ -337,8 +337,9 @@ return (
 const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#fff',
+      // backgroundColor: '#fff',
       paddingTop: 10, // Ensuring space from the status bar or navbar if any
+      backgroundColor: "#f2f2f2",
     },
     tabContainer: {
       flexDirection: 'row',

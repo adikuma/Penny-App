@@ -24,4 +24,6 @@ Before you can run the app, you need to set up your development environment.
 ```bash
 git clone https://github.com/yourgithubusername/daily-groceries.git
 cd daily-groceries
-
+npx expo start
+node server.js
+python app.py

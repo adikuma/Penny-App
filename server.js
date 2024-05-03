@@ -23,17 +23,26 @@ async function connectDB() {
 
 app.post('/addReceipt', async (req, res) => {
     try {
-        const db = await connectDB();  // Ensure db is connected
-        const receiptsCollection = db.collection('receipts');
-        const result = await receiptsCollection.insertOne(req.body);
-        console.log("Receipt inserted successfully:", result);
-        res.status(200).json(result);
+      const db = await connectDB(); 
+      const receiptsCollection = db.collection('receipts');
+      const dataToInsert = {
+        storeName: req.body.storeName,
+        date: req.body.date,
+        category: req.body.category,
+        description: req.body.description,
+        lineItems: req.body.lineItems,
+        total: req.body.total,
+        imageUrl: req.body.imageUrl, // Make sure to include imageUrl here
+      };
+      const result = await receiptsCollection.insertOne(dataToInsert);
+      console.log("Receipt inserted successfully:", result);
+      res.status(200).json(result);
     } catch (error) {
-        console.error('Error inserting receipt:', error);
-        res.status(500).json({ error: 'Internal server error' });
+      console.error('Error inserting receipt:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
-});
-
+  });
+  
 app.get('/getTransactions', async (req, res) => {
     try {
         console.log("Starting...");

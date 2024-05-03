@@ -15,8 +15,9 @@ const PhotoReviewScreen = ({ route, navigation }) => {
     return [];
   };
 
-  const initialData = route.params.ocrData || { store_name: '', date: '', line_items: [] };
+  const initialData = route.params.ocrData || { store_name: '', date: '', line_items: [], image_path: ''};
   initialData.line_items = normalizeLineItems(initialData);
+  initialData.image_path = route.params.image_path || ''; // Add this line
   const [ocrData, setOcrData] = useState(initialData);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [isDeleteAlertVisible, setDeleteAlertVisible] = useState(false);
@@ -25,7 +26,7 @@ const PhotoReviewScreen = ({ route, navigation }) => {
   const [date, setDate] = useState(new Date());  
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [description, setDescription] = useState('');
-
+  
   const updateField = (key, value) => {
     setOcrData({ ...ocrData, [key]: value });
   };
@@ -85,6 +86,7 @@ const PhotoReviewScreen = ({ route, navigation }) => {
         Alert.alert('Please select a category before saving');
         return;
       }
+      console.log('Image Path:', ocrData.image_path);
       const result = await axios.post('http://192.168.50.240:3000/addReceipt', {
         storeName: ocrData.store_name,
         date: ocrData.date,
@@ -96,7 +98,7 @@ const PhotoReviewScreen = ({ route, navigation }) => {
           itemValue: item.item_value
         })),
         total: calculateTotal(),
-        imageUrl: '', // Optional image URL
+        imageUrl: route.params.image_path, // Use route.params.image_path instead of ocrData.image_path
       });
       Alert.alert("Success", "Receipt saved successfully");
       navigation.navigate('History');  // Navigate to the TransactionScreen
@@ -234,7 +236,6 @@ const PhotoReviewScreen = ({ route, navigation }) => {
   );
   
 };
-
 
 const styles = StyleSheet.create({
   container: {

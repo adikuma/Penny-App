@@ -9,26 +9,41 @@ import {
   TextInput,
   Image,
   ImageBackground,
+  Modal,
 } from "react-native";
 import * as Font from "expo-font";
 import * as Haptics from "expo-haptics";
 import { FlatList } from "react-native";
 import axios from "axios";
-import { useNavigation } from '@react-navigation/native';
-
+import { useNavigation } from "@react-navigation/native";
 
 const TransactionItem = ({ item }) => {
-  const navigation = useNavigation(); 
+  const navigation = useNavigation();
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
+
+  const handleImageClick = () => {
+    setImageModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setImageModalVisible(false);
+  };
+
   return (
-  
     <TouchableOpacity
       style={styles.transactionItem}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate("TransactionDetail", { item });  // Pass the entire item object
+        navigation.navigate("TransactionDetail", { item });
       }}
     >
-      <View style={styles.avatar} />
+      <TouchableOpacity onPress={handleImageClick}>
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatar} />
+        )}
+      </TouchableOpacity>
       <View style={styles.transactionTextContent}>
         <Text style={styles.transactionTitle}>{item.storeName}</Text>
         <Text style={styles.transactionSubtitle}>{item.description}</Text>
@@ -37,7 +52,35 @@ const TransactionItem = ({ item }) => {
         <Text style={styles.transactionAmount}>{item.total}</Text>
         <Text style={styles.transactionDate}>{item.date}</Text>
       </View>
+      <ImageModal
+        visible={isImageModalVisible}
+        imageUrl={item.imageUrl}
+        onClose={handleCloseModal}
+      />
     </TouchableOpacity>
+  );
+};
+
+const ImageModal = ({ visible, imageUrl, onClose }) => {
+  const handleCloseModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent={true} onRequestClose={onClose}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Image source={{ uri: imageUrl }} style={styles.modalImage} />
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleCloseModal}
+          >
+            <Text style={styles.closeButtonText}>x</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -195,11 +238,7 @@ export default function App() {
           keyExtractor={(item) =>
             item._id ? item._id.toString() : Math.random().toString()
           }
-          renderItem={({ item }) => (
-            <TransactionItem
-              item={item}
-            />
-          )}
+          renderItem={({ item }) => <TransactionItem item={item} />}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         />
@@ -365,7 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    marginBottom: 10
+    marginBottom: 10,
   },
   searchBar: {
     flex: 1,
@@ -394,5 +433,36 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     marginRight: 5,
+  },
+
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  modalContent: {
+    position: "relative",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  modalImage: {
+    width: 300,
+    height: 300,
+    resizeMode: "cover",
+    borderRadius: 20,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(128, 128, 128, 0.5)",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    padding: 10,
+  },
+  closeButtonText: {
+    color: "white",
+    fontSize: 16,
   },
 });

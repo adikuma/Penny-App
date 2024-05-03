@@ -22,6 +22,11 @@ const CameraScreen = () => {
   const cameraRef = useRef(null);
   const isFocused = useIsFocused();
   const navigation = useNavigation();
+  const currentTime = new Date();
+  const hours = currentTime.getHours();
+  const minutes = currentTime.getMinutes();
+  const seconds = currentTime.getSeconds();
+
 
   useEffect(() => {
     (async () => {
@@ -57,7 +62,7 @@ const CameraScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const localUri = photo.uri;
-      const filename = localUri.split("/").pop();
+      const filename = `receipt_${hours}_${minutes}_${seconds}.jpg`;
       const newPath = FileSystem.documentDirectory + filename;
 
       await FileSystem.moveAsync({
@@ -68,7 +73,7 @@ const CameraScreen = () => {
       const data = new FormData();
       data.append("image", {
         uri: newPath,
-        name: "receipt.jpg",
+        name:  `receipt_${hours}_${minutes}_${seconds}.jpg`,
         type: "image/jpeg",
       });
       data.append("description", "This is a test description");
@@ -94,7 +99,7 @@ const CameraScreen = () => {
 
         Alert.alert("Success", "Receipt processed successfully");
         setPhoto(null);
-        navigation.navigate("PhotoReview", { ocrData: ocrData }); // Pass only serializable data
+        navigation.navigate("PhotoReview", { ocrData: ocrData, image_path: newPath}); // Pass only serializable data
       } else {
         console.error("Failed to process the receipt.");
         Alert.alert("Error", "Failed to process the receipt.");

@@ -3,76 +3,14 @@ import {
   StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, 
   Animated, TextInput, Image, ImageBackground
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import * as Font from 'expo-font';
-import GestureRecognizer from 'react-native-swipe-gestures';
 import * as Haptics from 'expo-haptics';
 import { FlatList } from 'react-native';
-import { launchCamera } from 'react-native-image-picker';
-import { NavigationContainer } from '@react-navigation/native';
 import axios from 'axios';
 
-const data = {
-  Daily: ['$156.28', '$162.47', '$174.52', '$180.66', '$195.85'],
-  Weekly: ['$320.58', '$330.14', '$340.29', '$355.68', '$360.92'],
-  Monthly: ['$883.21', '$892.34', '$900.12', '$910.48', '$925.67']
-};
 
-const transactions = [
-  { id: '1', title: 'Sony Playstation', subtitle: 'Fifa 2022 Game', amount: '-$53.95', date: 'March 14, 2021' },
-  { id: '2', title: 'Bank Transfer', subtitle: 'Salary for March', amount: '+$2500.95', date: 'April 14, 2021' },
-  { id: '7', title: 'Book Store', subtitle: 'Learning React Native', amount: '-$39.99', date: 'February 10, 2021' },
-  { id: '8', title: 'Grocery', subtitle: 'Weekly Food Supplies', amount: '-$76.23', date: 'February 12, 2021' },
-  { id: '9', title: 'Gym Membership', subtitle: 'Monthly Subscription', amount: '-$25.00', date: 'February 15, 2021' },
-  { id: '10', title: 'Online Course', subtitle: 'Advanced Photography', amount: '-$19.99', date: 'February 18, 2021' },
-  { id: '11', title: 'Taxi Ride', subtitle: 'Cab to Airport', amount: '-$29.80', date: 'February 19, 2021' },
-  { id: '12', title: 'Pet Supplies', subtitle: 'Dog Food & Toys', amount: '-$45.75', date: 'February 21, 2021' },
-];
-
-const formatDate = (date) => {
-  const suffix = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
-  const day = date.getDate();
-  const dateSuffix = suffix[(day % 10) > 3 ? 0 : (day % 100 - day % 10 !== 10) * (day % 10)];
-  return (
-    <Text>
-      {`${day}${dateSuffix} `}
-      <Text style={{ color: 'blue' }}>{date.toLocaleString('en-us', { month: 'long' })}</Text>
-      {`, ${date.getFullYear()}`}
-    </Text>
-  );
-};
-
-const TabBar = ({ tabs, onSelect, selectedTab }) => {
-  const handlePress = (tab) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onSelect(tab);
-  };
-
-  return (
-    <View style={styles.tabContainer}>
-      {tabs.map((tab) => (
-        <TouchableOpacity
-          key={tab}
-          style={[
-            styles.tab,
-            selectedTab === tab && styles.selectedTab
-          ]}
-          onPress={() => handlePress(tab)}
-        >
-          <Text style={[
-            styles.tabText,
-            selectedTab === tab && styles.selectedTabText
-          ]}>
-            {tab}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-
-const TransactionItem = ({ title, subtitle, amount, date }) => {
+const TransactionItem = ({ item }) => {
+  console.log("Item:", item); // Add this line to log the 'item' prop
   return (
     <TouchableOpacity
       style={styles.transactionItem}
@@ -82,42 +20,13 @@ const TransactionItem = ({ title, subtitle, amount, date }) => {
     >
       <View style={styles.avatar} />
       <View style={styles.transactionTextContent}>
-        <Text style={styles.transactionTitle} numberOfLines={1}>{title}</Text>
-        <Text style={styles.transactionSubtitle} numberOfLines={1}>{subtitle}</Text>
+      <Text style={styles.transactionTitle}>{item.storeName}</Text>
+      <Text style={styles.transactionSubtitle}>{item.description}</Text>
       </View>
       <View style={styles.transactionDetails}>
-        <Text style={styles.transactionAmount}>{amount}</Text>
-        <Text style={styles.transactionDate}>{date}</Text>
+      <Text style={styles.transactionAmount}>{item.total}</Text>
+      <Text style={styles.transactionDate}>{item.date}</Text>
       </View>
-    </TouchableOpacity>
-  );
-};
-
-const CameraButton = () => {
-  const openCamera = () => {
-    const options = {
-      mediaType: 'photo',
-      cameraType: 'back',
-    };
-
-    launchCamera(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled camera picker');
-      } else if (response.error) {
-        console.log('CameraPicker Error: ', response.error);
-      } else {
-        const source = { uri: response.assets[0].uri };
-        console.log('Camera photo: ', source);
-      }
-    });
-  };
-
-  return (
-    <TouchableOpacity onPress={openCamera} style={styles.cameraButton}>
-      <Image
-        style={styles.cameraIcon}
-        source={{ uri: 'https://img.icons8.com/deco/48/camera.png' }}
-      />
     </TouchableOpacity>
   );
 };
@@ -126,17 +35,19 @@ export default function App() {
   const [selectedTab, setSelectedTab] = useState('Daily');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  const [value, setValue] = useState(data[selectedTab][currentIndex]);
+  const [value, setValue] = useState('');
   const [date, setDate] = useState(new Date());
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const combinedTransactions = [...transactions];
+  const [transactions, setTransactions] = useState([]); // Moved transactions state declaration here
+  const combinedTransactions = [...transactions]; // Moved combinedTransactions declaration here
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [filteredTransactions, setFilteredTransactions] = useState([]);
 
-  //blur
   const blurAnim = useRef(new Animated.Value(0)).current;
 
-  //blur
   const handleScroll = (event) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const contentHeight = event.nativeEvent.contentSize.height;
@@ -147,29 +58,24 @@ export default function App() {
   };
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    async function fetchTransactions() {
+      setIsLoading(true);
       try {
         const response = await axios.get('http://192.168.50.240:3000/getTransactions');
-        if (response.status === 200) {
-          console.log("Fetched transactions:", response.data);
+        if (response.status === 200 && response.data) {
+          console.log("Fetched transactions from MongoDB:", response.data);
           setTransactions(response.data);
+        } else {
+          setError('No data received');
         }
       } catch (error) {
         console.error('Failed to fetch transactions:', error);
+        setError('Failed to load transactions');
       }
-    };
-    fetchTransactions();
-  }, []);
-  
-  useEffect(() => {
-    async function loadFonts() {
-      await Font.loadAsync({
-        'CustomFont-Regular': require('./assets/fonts/LeagueMono-CondensedLight.ttf'),
-        'CustomFont-Bold': require('./assets/fonts/LeagueMono-CondensedSemiBold.ttf'),
-      });
-      setFontsLoaded(true);
+      setIsLoading(false);
     }
-    loadFonts();
+
+    fetchTransactions();
   }, []);
 
   useEffect(() => {
@@ -191,7 +97,19 @@ export default function App() {
   };
 
   useEffect(() => {
-    setValue(data[selectedTab][currentIndex]);
+    if (searchQuery.trim() === '') {
+      setFilteredTransactions(transactions);
+    } else {
+      const filtered = transactions.filter(transaction =>
+        transaction.storeName.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredTransactions(filtered);
+    }
+  }, [searchQuery, transactions]);
+  
+  
+
+  useEffect(() => {
     updateDate(currentIndex);
     fadeIn();
   }, [selectedTab, currentIndex]);
@@ -220,6 +138,15 @@ export default function App() {
   if (!fontsLoaded) {
     return <ActivityIndicator />;
   }
+
+  if (isLoading) {
+    return <ActivityIndicator size="large" color="#0000ff" />;
+  }
+
+  if (error) {
+    return <Text>Error: {error}</Text>;
+  }
+
 
 
   return (
@@ -250,19 +177,16 @@ export default function App() {
       <View style={styles.customLine} />
       <View style={styles.transactionList}>
       <FlatList
-  data={transactions}
-      keyExtractor={(item) => item._id ? item._id.toString() : Math.random().toString()}
-      renderItem={({ item }) => (
-        <TransactionItem
-          title={item.title}
-          subtitle={item.subtitle}
-          amount={item.amount}
-          date={item.date}
-        />
-      )}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-          />
+  data={searchQuery.trim() === '' ? transactions : filteredTransactions}
+  keyExtractor={(item) => item._id ? item._id.toString() : Math.random().toString()}
+  renderItem={({ item }) => (
+    <TransactionItem
+      item={item} // Pass the entire item object to TransactionItem
+    />
+  )}
+  onScroll={handleScroll}
+  scrollEventThrottle={16}
+/>
 
       </View>
     </View>

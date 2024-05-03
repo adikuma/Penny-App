@@ -79,7 +79,12 @@ const PhotoReviewScreen = ({ route, navigation }) => {
   };
 
   const saveReceiptToMongoDB = async () => {
+
     try {
+      if (!selectedCategory){
+        Alert.alert('Please select a category before saving');
+        return;
+      }
       const result = await axios.post('http://192.168.50.240:3000/addReceipt', {
         storeName: ocrData.store_name,
         date: ocrData.date,

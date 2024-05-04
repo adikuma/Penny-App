@@ -37,12 +37,7 @@ const TransactionItem = ({ item }) => {
         navigation.navigate("TransactionDetail", { item });
       }}
     >
-      <TouchableOpacity
-        onPress={() => {
-          handleImageClick(); // Ensure this is a function call
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }}
-      >
+      <TouchableOpacity onPress={handleImageClick}>
         {item.imageUrl ? (
           <Image source={{ uri: item.imageUrl }} style={styles.avatar} />
         ) : (

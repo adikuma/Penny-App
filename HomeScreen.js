@@ -10,7 +10,7 @@ import {
   Image,
   ImageBackground,
   ScrollView,
-  Alert
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Font from "expo-font";
@@ -171,7 +171,6 @@ export default function HomeScreen({ navigation }) {
     Weekly: {},
     Monthly: {},
   });
-  
 
   //chart tiles
   const chartTitle = `${selectedTab} Expenses`;
@@ -197,9 +196,7 @@ export default function HomeScreen({ navigation }) {
       return (
         <Text>
           {`${day}${dateSuffix} `}
-          <Text>
-            {date.toLocaleString("en-us", { month: "long" })}
-          </Text>
+          <Text>{date.toLocaleString("en-us", { month: "long" })}</Text>
           {`, ${date.getFullYear()}`}
         </Text>
       );
@@ -325,7 +322,6 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-
   function getWeekNumber(date) {
     const d = new Date(
       Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
@@ -360,7 +356,7 @@ export default function HomeScreen({ navigation }) {
     const dailyExpenses = {};
     const weeklyExpenses = {};
     const monthlyExpenses = {};
-  
+
     transactions.forEach((transaction) => {
       try {
         const date = parseDate(transaction.date);
@@ -372,12 +368,12 @@ export default function HomeScreen({ navigation }) {
         const weekKey = `${weekDate.getFullYear()}-${(weekDate.getMonth() + 1)
           .toString()
           .padStart(2, "0")}-${weekDate.getDate().toString().padStart(2, "0")}`;
-        
+
         // Update the monthKey to include only the year and month
         const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1)
           .toString()
           .padStart(2, "0")}`;
-  
+
         dailyExpenses[dayKey] =
           (dailyExpenses[dayKey] || 0) + parseFloat(transaction.total);
         weeklyExpenses[weekKey] =
@@ -390,7 +386,7 @@ export default function HomeScreen({ navigation }) {
           monthKey,
           amount: transaction.total,
         });
-  
+
         console.log("Processed transaction for Daily:", { dailyExpenses });
         console.log("Processed transaction for Weekly:", { weeklyExpenses });
         console.log("Processed transaction for Monthly:", { monthlyExpenses });
@@ -398,7 +394,7 @@ export default function HomeScreen({ navigation }) {
         console.error("Error processing transaction:", transaction, error);
       }
     });
-  
+
     setAggregatedExpenses({
       Daily: Object.entries(dailyExpenses).map(([date, total]) => ({
         date,
@@ -482,7 +478,7 @@ export default function HomeScreen({ navigation }) {
     } else if (selectedTab === "Weekly") {
       today.setDate(today.getDate() - index * 7);
     } else if (selectedTab === "Monthly") {
-        today.setDate(today.getMonth() - index);
+      today.setDate(today.getMonth() - index);
     }
     if (isNaN(today.getTime())) {
       console.error("Invalid date generated:", today);
@@ -493,30 +489,30 @@ export default function HomeScreen({ navigation }) {
   };
 
   //aggregate expensive
-useEffect(() => {
-  if (
-    aggregatedExpenses[selectedTab] &&
-    aggregatedExpenses[selectedTab].length > currentIndex
-  ) {
-    const entry = aggregatedExpenses[selectedTab][currentIndex];
-    const newValue = `$${entry.value.toFixed(2)}`;
-    setValue(newValue);
+  useEffect(() => {
+    if (
+      aggregatedExpenses[selectedTab] &&
+      aggregatedExpenses[selectedTab].length > currentIndex
+    ) {
+      const entry = aggregatedExpenses[selectedTab][currentIndex];
+      const newValue = `$${entry.value.toFixed(2)}`;
+      setValue(newValue);
 
-    const parts = entry.date.split("-");
-    let newDate;
-    if (selectedTab === "Monthly") {
-      newDate = new Date(parts[0], parts[1] - 1);
+      const parts = entry.date.split("-");
+      let newDate;
+      if (selectedTab === "Monthly") {
+        newDate = new Date(parts[0], parts[1] - 1);
+      } else {
+        newDate = new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+      setDate(newDate);
     } else {
-      newDate = new Date(parts[0], parts[1] - 1, parts[2]);
+      setValue("$0.00");
+      setDate(new Date());
     }
-    setDate(newDate);
-  } else {
-    setValue("$0.00");
-    setDate(new Date());
-  }
 
-  fadeIn();
-}, [selectedTab, currentIndex, aggregatedExpenses]);    
+    fadeIn();
+  }, [selectedTab, currentIndex, aggregatedExpenses]);
 
   const fadeIn = () => {
     fadeAnim.setValue(0);
@@ -533,7 +529,10 @@ useEffect(() => {
       setCurrentIndex(currentIndex - 1);
     } else {
       // Show a simple bubble alert when swiping beyond the last recorded day
-      Alert.alert("Alert", "This is the last recorded day for the selected tab.");
+      Alert.alert(
+        "Alert",
+        "This is the last recorded day for the selected tab."
+      );
     }
   };
   const onSwipeRight = () => {
@@ -543,7 +542,10 @@ useEffect(() => {
       setCurrentIndex(currentIndex + 1);
     } else {
       // Show a simple bubble alert when swiping beyond the last recorded day
-      Alert.alert("Alert", "This is the last recorded day for the selected tab.");
+      Alert.alert(
+        "Alert",
+        "This is the last recorded day for the selected tab."
+      );
     }
   };
   const config = {

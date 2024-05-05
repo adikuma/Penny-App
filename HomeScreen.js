@@ -15,7 +15,7 @@ import { BarChart, LineChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
-import moment from 'moment';
+import moment from "moment";
 
 //aggregation
 const organizeTransactions = (transactions) => {
@@ -25,6 +25,14 @@ const organizeTransactions = (transactions) => {
   let daily = {};
   let weekly = {};
   let monthly = {};
+  let currentWeekKey = `Week ${moment().format("ww")}, ${moment().format(
+    "YYYY"
+  )}`;
+  let categoryTotals = {
+    Home: 0,
+    Personal: 0,
+    Food: 0,
+  };
 
   transactions.forEach((transaction) => {
     const date = moment(transaction.date, "DD/MM/YYYY");
@@ -34,33 +42,99 @@ const organizeTransactions = (transactions) => {
 
     daily[dayKey] = (daily[dayKey] || 0) + parseFloat(transaction.total);
     weekly[weekKey] = (weekly[weekKey] || 0) + parseFloat(transaction.total);
-    monthly[monthKey] = (monthly[monthKey] || 0) + parseFloat(transaction.total);
+    monthly[monthKey] =
+      (monthly[monthKey] || 0) + parseFloat(transaction.total);
   });
 
-  Object.keys(daily).sort().reverse().forEach(key => {
-    d.push({ date: key, total: daily[key] });
-  });
-  Object.keys(weekly).sort().reverse().forEach(key => {
-    w.push({ week: key, total: weekly[key] });
-  });
+  Object.keys(daily)
+    .sort()
+    .reverse()
+    .forEach((key) => {
+      d.push({ date: key, total: daily[key] });
+    });
+  Object.keys(weekly)
+    .sort()
+    .reverse()
+    .forEach((key) => {
+      w.push({ week: key, total: weekly[key] });
+    });
 
   Object.keys(monthly)
-    .map(key => {
-      const [month, year] = key.split(' ');
+    .map((key) => {
+      const [month, year] = key.split(" ");
       return {
         monthKey: key,
         sortableDate: moment(key, "MMMM YYYY").toDate(),
-        total: monthly[key]
+        total: monthly[key],
       };
     })
     .sort((a, b) => b.sortableDate - a.sortableDate)
-    .forEach(item => {
+    .forEach((item) => {
       m.push({ month: item.monthKey, total: item.total });
     });
 
   return { Daily: d, Weekly: w, Monthly: m };
 };
 
+const organizeTransactionsByCategory = (transactions) => {
+  let currentWeekKey = `Week ${moment().format("ww")}, ${moment().format(
+    "YYYY"
+  )}`;
+
+  let categoryTotals = {
+    Home: { Daily: 0, Weekly: 0, Monthly: 0 },
+    Personal: { Daily: 0, Weekly: 0, Monthly: 0 },
+    Food: { Daily: 0, Weekly: 0, Monthly: 0 },
+  };
+
+  transactions.forEach((transaction) => {
+    const date = moment(transaction.date, "DD/MM/YYYY");
+    const dayKey = date.format("YYYY-MM-DD");
+    const weekKey = `Week ${date.format("ww")}, ${date.format("YYYY")}`;
+    const monthKey = date.format("MMMM YYYY");
+
+    categoryTotals[transaction.category].Weekly += parseFloat(
+      transaction.total
+    );
+
+    categoryTotals[transaction.category].Daily += parseFloat(transaction.total); 
+    categoryTotals[transaction.category].Monthly += parseFloat(
+      transaction.total
+    );
+  });
+
+  return categoryTotals;
+};
+
+const organizeLastWeekTransactions = (transactions) => {
+  const lastWeekDates = [...Array(7)]
+    .map((_, i) => moment().subtract(i, "days").format("YYYY-MM-DD"))
+    .reverse();
+  let dailyTotals = lastWeekDates.reduce(
+    (acc, date) => ({ ...acc, [date]: 0 }),
+    {}
+  );
+
+  transactions.forEach((transaction) => {
+    const dateKey = moment(transaction.date, "DD/MM/YYYY").format("YYYY-MM-DD");
+    if (dailyTotals.hasOwnProperty(dateKey)) {
+      dailyTotals[dateKey] += parseFloat(transaction.total);
+    }
+  });
+
+  const labels = lastWeekDates.map((date) => moment(date).format("dd")[0]);
+  const data = lastWeekDates.map((date) => dailyTotals[date]);
+
+  return {
+    labels,
+    datasets: [
+      {
+        data,
+        color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+      },
+    ],
+  };
+};
 
 //dimension width
 const screenWidth = Dimensions.get("window").width;
@@ -82,44 +156,6 @@ const expenses = {
     Food: "$600.00",
   },
 };
-
-const data = {
-  Daily: [
-    "$156.28",
-    "$162.47",
-    "$174.52",
-    "$180.66",
-    "$195.85",
-    "$50.58",
-    "$20.14",
-    "$60.29",
-    "$132.68",
-    "$160.92",
-  ],
-  Weekly: [
-    "$320.58",
-    "$330.14",
-    "$540.29",
-    "$355.68",
-    "$360.92",
-    "$320.58",
-    "$330.14",
-    "$440.29",
-    "$355.68",
-    "$360.92",
-  ],
-  Monthly: [
-    "$883.21",
-    "$892.34",
-    "$900.12",
-    "$910.48",
-    "$925.67",
-    "$1220.12",
-    "$1210.48",
-    "$2100.67",
-  ],
-};
-
 
 const TabBar = ({ tabs, onSelect, selectedTab }) => {
   const handlePress = (tab) => {
@@ -175,13 +211,14 @@ export default function HomeScreen({ navigation }) {
     Daily: 0,
     Weekly: 0,
     Monthly: 0,
-  });  
+  });
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  console.log(selectedTab)
+  console.log(selectedTab);
   const [value, setValue] = useState("$0.00");
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState("");
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const remainingQuota = quotas[selectedTab] - parseFloat(value.substring(1).replace(/,/g, ""));
+  const remainingQuota =
+    quotas[selectedTab] - parseFloat(value.substring(1).replace(/,/g, ""));
   const progress = (remainingQuota / quotas[selectedTab]) * 100;
   const quotaExceeded = remainingQuota < 0;
   const quotaTextStyle = quotaExceeded
@@ -196,64 +233,109 @@ export default function HomeScreen({ navigation }) {
   console.log("Daily Totals:", organizedData.Daily);
   console.log("Weekly Totals:", organizedData.Weekly);
   console.log("Monthly Totals:", organizedData.Monthly);
-  console.log('Organized: ', {organizedData})
+  console.log("Organized: ", { organizedData });
+  const [barChartData, setBarChartData] = useState({
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        color: () => `blue`,
+      },
+    ],
+  });
+  const [expenses, setExpenses] = useState({
+    Home: { Daily: 0, Weekly: 0, Monthly: 0 },
+    Personal: { Daily: 0, Weekly: 0, Monthly: 0 },
+    Food: { Daily: 0, Weekly: 0, Monthly: 0 },
+  });
 
-//get transaction and aggregation
-//get transaction and aggregation
-useEffect(() => {
-  const fetchTransactions = async () => {
-    try {
-      const response = await axios.get("http://192.168.50.240:3000/getTransactions");
-      if (response.status === 200 && response.data) {
-        const organizedData = organizeTransactions(response.data);
-        console.log("Daily Totals:", organizedData.Daily);
-        console.log("Weekly Totals:", organizedData.Weekly);
-        console.log("Monthly Totals:", organizedData.Monthly);
-        setTransactions(response.data);
+  //get transaction and aggregation
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const response = await axios.get(
+          "http://192.168.50.240:3000/getTransactions"
+        );
+        if (response.status === 200 && response.data) {
+          const organizedData = organizeTransactions(response.data);
+          console.log("Daily Totals:", organizedData.Daily);
+          console.log("Weekly Totals:", organizedData.Weekly);
+          console.log("Monthly Totals:", organizedData.Monthly);
+          setTransactions(response.data);
+          const barChartData = organizeLastWeekTransactions(response.data);
+          setBarChartData(barChartData);
+          const categoryTotals = organizeTransactionsByCategory(response.data);
+          console.log("Category Totals:", categoryTotals);
+          setExpenses(categoryTotals); // Adjust useState to manage expenses state
 
-        // Update value and date once the data is fetched and organized
-        if (organizedData[selectedTab] && organizedData[selectedTab][indices[selectedTab]]) {
-          const { total, date, week, month } = organizedData[selectedTab][indices[selectedTab]];
-          setValue(`$${total.toFixed(2)}`);
+          if (
+            organizedData[selectedTab] &&
+            organizedData[selectedTab][indices[selectedTab]]
+          ) {
+            const { total, date, week, month } =
+              organizedData[selectedTab][indices[selectedTab]];
+            setValue(`$${total.toFixed(2)}`);
 
-          // Update the date based on the selected tab
-          if (selectedTab === "Daily") {
-            setDate(new Date(date));
-          } else if (selectedTab === "Weekly") {
-            setDate(week); // Set the date to the week value directly
-          } else if (selectedTab === "Monthly") {
-            const [monthName, year] = month.split(" ");
-            const startOfMonth = moment().month(monthName).year(year).startOf("month").toDate();
-            setDate(startOfMonth);
+            if (selectedTab === "Daily") {
+              setDate(new Date(date));
+            } else if (selectedTab === "Weekly") {
+              setDate(week);
+            } else if (selectedTab === "Monthly") {
+              const [monthName, year] = month.split(" ");
+              const startOfMonth = moment()
+                .month(monthName)
+                .year(year)
+                .startOf("month")
+                .toDate();
+              setDate(startOfMonth);
+            }
           }
+        } else {
+          throw new Error("No data received");
         }
-      } else {
-        throw new Error("No data received");
+      } catch (error) {
+        console.error("Failed to fetch transactions:", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch transactions:", error);
-    }
-  };
-  
-  fetchTransactions();
-}, [selectedTab, indices[selectedTab]]);
+    };
 
+    fetchTransactions();
+  }, [selectedTab, indices[selectedTab]]);
 
   const formatDate = (date) => {
     if (selectedTab === "Daily") {
-      const suffix = ["th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th"];
+      const suffix = [
+        "th",
+        "st",
+        "nd",
+        "rd",
+        "th",
+        "th",
+        "th",
+        "th",
+        "th",
+        "th",
+      ];
       return (
         <Text>
-          {date.toLocaleString("en-us", { day:'numeric', month: "long" , year: 'numeric'})}
+          {date.toLocaleString("en-us", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
         </Text>
       );
     } else if (selectedTab === "Weekly") {
-      // Convert the date (which is a string in this case) to a string directly
-      console.log('Date: ', {date})
+      console.log("Date: ", { date });
       return <Text>{date.toString()}</Text>;
     } else if (selectedTab === "Monthly") {
       return (
-          <Text>  {date.toLocaleString("en-us", { month: "long" , year: 'numeric'})} </Text>
+        <Text>
+          {" "}
+          {date.toLocaleString("en-us", {
+            month: "long",
+            year: "numeric",
+          })}{" "}
+        </Text>
       );
     }
   };
@@ -268,61 +350,17 @@ useEffect(() => {
   //tootltip
   const formatTooltipValue = (value) => `$${parseFloat(value).toFixed(2)}`;
 
-  const getBarColor = (value, quota) =>
-    value > quota ? "rgba(255, 0, 0, 0.6)" : "rgba(0, 0, 255, 0.6)";
-
-  const updatedBarChartData = () => {
-    const values = data[selectedTab]
-      .slice(-7)
-      .map((value) => parseFloat(value.replace(/[$,]/g, "")));
-    const colors = values.map((value) =>
-      getBarColor(value, quotas[selectedTab])
-    );
-    return {
-      labels: ["M", "T", "W", "T", "F", "S", "S"],
-      datasets: [
-        {
-          data: values,
-          color: (dataPoint, index) => colors[index],
-        },
-      ],
-    };
-  };
-
-  const barChartData = updatedBarChartData();
-
   const handleDataPointClick = (data) => {
     const { index, value } = data;
-    const formattedValue = formatTooltipValue(value); // Ensure this returns the string correctly formatted
+    const formattedValue = formatTooltipValue(value);
     const x =
       (screenWidth / barChartData.labels.length) * index +
       screenWidth / barChartData.labels.length / 2;
-    const y = 0; // You might adjust this if you want the tooltip to appear over the bar
+    const y = 0;
     setTooltipPos({ x, y, visible: true, value: formattedValue });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  const chartConfig = {
-    backgroundGradientFrom: "white",
-    backgroundGradientTo: "white",
-    fillShadowGradient: "blue",
-    fillShadowGradientOpacity: 1,
-    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, // Default color, overridden by dataset
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-    barPercentage: 0.3,
-    barRadius: 5,
-    decimalPlaces: 0,
-    propsForLabels: {
-      fontSize: "12",
-    },
-    propsForDots: {
-      r: "6",
-      strokeWidth: "2",
-      stroke: "#ffa726",
-    },
-    onPress: (data) => handleDataPointClick(data),
-  };
-
   useEffect(() => {
     async function loadFonts() {
       await Font.loadAsync({
@@ -344,50 +382,27 @@ useEffect(() => {
     }
     loadFonts();
   }, []);
-
-
-  const updateDate = (index) => {
-    const today = new Date();
-    if (selectedTab === "Daily") {
-      today.setDate(today.getDate() - index);
-    } else if (selectedTab === "Weekly") {
-      today.setDate(today.getDate() - index * 7);
-    } else if (selectedTab === "Monthly") {
-      today.setMonth(today.getMonth() - index);
-    }
-    setDate(today);
-  };
-
-  const fadeIn = () => {
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const updateIndex = (newIndex) => {
-    setIndices(prevIndices => ({
+    setIndices((prevIndices) => ({
       ...prevIndices,
-      [selectedTab]: newIndex
+      [selectedTab]: newIndex,
     }));
-  };  
+  };
 
   const onSwipeLeft = () => {
-    if (indices[selectedTab] > 0) { // Check if the current index is greater than 0
+    if (indices[selectedTab] > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      updateIndex(indices[selectedTab] - 1); // Update the index by decreasing it
+      updateIndex(indices[selectedTab] - 1);
     }
   };
-  
+
   const onSwipeRight = () => {
-    if (indices[selectedTab] < data[selectedTab].length - 1) { // Check if the current index is less than the max index for the tab
+    if (indices[selectedTab] < data[selectedTab].length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      updateIndex(indices[selectedTab] + 1); 
+      updateIndex(indices[selectedTab] + 1);
     }
   };
-  
 
   const config = {
     velocityThreshold: 0.3,
@@ -398,7 +413,6 @@ useEffect(() => {
     return <ActivityIndicator />;
   }
 
-  // Within your HomeScreen component, ensure to render the ProgressBar conditionally if needed
   return (
     <View style={styles.container}>
       <TabBar
@@ -429,47 +443,66 @@ useEffect(() => {
         )}
       </GestureRecognizer>
 
-      {/* Updated squaresContainer to display weekly expenses */}
-      <View style={styles.squaresContainer}>
-        <View style={styles.square}>
-          <MaterialIcons name="home" size={24} color="#0c0212" />
-          <Text style={styles.squareText}>{expenses[selectedTab].Home}</Text>
-        </View>
-        <View style={styles.square}>
-          <MaterialIcons name="person" size={24} color="#0c0212" />
-          <Text style={styles.squareText}>
-            {expenses[selectedTab].Personal}
-          </Text>
-        </View>
-        <View style={styles.square}>
-          <MaterialIcons name="fastfood" size={24} color="#0c0212" />
-          <Text style={styles.squareText}>{expenses[selectedTab].Food}</Text>
+      <View style={styles.squaresSection}>
+        <View style={styles.squaresContainer}>
+          <View style={styles.square}>
+            <MaterialIcons name="home" size={24} color="#0c0212" />
+            <Text style={styles.squareText}>
+              ${expenses.Home.Weekly.toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.square}>
+            <MaterialIcons name="person" size={24} color="#0c0212" />
+            <Text style={styles.squareText}>
+              ${expenses.Personal.Weekly.toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.square}>
+            <MaterialIcons name="fastfood" size={24} color="#0c0212" />
+            <Text style={styles.squareText}>
+              ${expenses.Food.Weekly.toFixed(2)}
+            </Text>
+          </View>
         </View>
       </View>
 
       <StatusBar style="auto" />
 
       <View style={styles.graphSection}>
-        <Text
-          style={styles.chartTitleText}
-        >{`${selectedTab} Expenses (in SGD)`}</Text>
         <BarChart
           style={styles.barChart}
           data={barChartData}
           width={screenWidth - 72}
-          height={220}
-          chartConfig={chartConfig}
+          height={270}
+          chartConfig={{
+            backgroundGradientFrom: "#fff",
+            backgroundGradientTo: "#fff",
+            fillShadowGradient: "blue",
+            fillShadowGradientOpacity: 1,
+            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            barPercentage: 0.5,
+            useShadowColorFromDataset: false,
+            barRadius: 10,
+            decimalPlaces: 0,
+          }}
           fromZero={true}
-          yAxisLabel={"$"}
+          yAxisLabel="$"
           showBarTops={false}
           withHorizontalLabels={true}
-          segments={2}
+          segments={4}
+          yAxisInterval={1}
+          onDataPointClick={handleDataPointClick}
         />
-
         {tooltipPos.visible && (
           <View
-            style={[styles.tooltip, { top: tooltipPos.y, left: tooltipPos.x }]}
+            style={[
+              styles.tooltip,
+              { top: tooltipPos.y, left: tooltipPos.x - 50 },
+            ]}
           >
+            {" "}
+            // Adjust left position by half tooltip's width for centering
             <Text style={styles.tooltipText}>{tooltipPos.value}</Text>
           </View>
         )}
@@ -617,14 +650,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "black",
   },
+
+  subheader: {
+    fontSize: 14,
+    color: "#0c0212",
+    fontFamily: "CustomFont-Bold",
+    marginBottom: 10,
+    textAlign: "left",
+  },
+
+  squaresSection: {
+    marginTop: 60,
+    marginBottom: 10,
+  },
   squaresContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    marginTop: 60,
-    marginBottom: 10,
   },
+
   square: {
     flex: 1,
     height: 80,
@@ -643,15 +688,14 @@ const styles = StyleSheet.create({
   },
 
   chartTitleText: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#0c0212",
     fontFamily: "CustomFont-Bold",
-    marginBottom: 10,
   },
   barChart: {
     marginVertical: 8,
     borderRadius: 16,
-    height: 240,
+    height: 270,
   },
   tooltip: {
     position: "absolute",
@@ -669,26 +713,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   valueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 40,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
-  
+
   valueAndDate: {
-    flexDirection: 'column',
-    alignItems: 'center',
+    flexDirection: "column",
+    alignItems: "center",
   },
-  
+
   arrowButton: {
     marginHorizontal: 10,
     padding: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
     backgroundColor: "rgba(128, 128, 128, 0.5)",
-    borderRadius: 100
-  }
-  
-  
+    borderRadius: 100,
+  },
 });

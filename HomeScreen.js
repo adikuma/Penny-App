@@ -398,7 +398,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const onSwipeRight = () => {
-    if (indices[selectedTab] < data[selectedTab].length - 1) {
+    if (indices[selectedTab] < organizedData[selectedTab].length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       updateIndex(indices[selectedTab] + 1);
     }
@@ -426,18 +426,18 @@ export default function HomeScreen({ navigation }) {
         config={config}
         style={styles.valueContainer}
       >
-        <TouchableOpacity onPress={onSwipeLeft} style={styles.arrowButton}>
+        {/* <TouchableOpacity onPress={onSwipeLeft} style={styles.arrowButton}>
           <MaterialIcons name="arrow-back" size={18} color="grey" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <View style={styles.valueAndDate}>
           <Animated.Text style={[quotaTextStyle, { opacity: fadeAnim }]}>
             {value}
           </Animated.Text>
           <Text style={styles.dateText}>{formatDate(date)}</Text>
         </View>
-        <TouchableOpacity onPress={onSwipeRight} style={styles.arrowButton}>
+        {/* <TouchableOpacity onPress={onSwipeRight} style={styles.arrowButton}>
           <MaterialIcons name="arrow-forward" size={18} color="grey" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         {quotaExceeded && (
           <ExceededIndicator amount={Math.abs(remainingQuota)} />
         )}

@@ -16,6 +16,7 @@ import { Dimensions } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 import moment from "moment";
+import { ScrollView, RefreshControl } from 'react-native';
 
 //aggregation
 const organizeTransactions = (transactions) => {
@@ -236,6 +237,7 @@ export default function HomeScreen({ navigation }) {
   console.log("Weekly Totals:", organizedData.Weekly);
   console.log("Monthly Totals:", organizedData.Monthly);
   console.log("Organized: ", { organizedData });
+  const [refreshing, setRefreshing] = useState(false);
   const [barChartData, setBarChartData] = useState({
     labels: [],
     datasets: [
@@ -250,6 +252,18 @@ export default function HomeScreen({ navigation }) {
     Personal: { Daily: 0, Weekly: 0, Monthly: 0 },
     Food: { Daily: 0, Weekly: 0, Monthly: 0 },
   });
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Place your data fetching logic here
+      await fetchTransactions();  // Assuming fetchTransactions fetches your data
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    }
+    setRefreshing(false);
+  }, []);
+  
 
   //get transaction and aggregation
   useEffect(() => {
@@ -392,6 +406,30 @@ export default function HomeScreen({ navigation }) {
     }));
   };
 
+  //for refresh
+  const fetchTransactions = async () => {
+    try {
+      const response = await axios.get("http://192.168.50.240:3000/getTransactions");
+      if (response.status === 200 && response.data) {
+        const organizedData = organizeTransactions(response.data);
+        console.log("Daily Totals:", organizedData.Daily);
+        console.log("Weekly Totals:", organizedData.Weekly);
+        console.log("Monthly Totals:", organizedData.Monthly);
+        setTransactions(response.data);
+        const barChartData = organizeLastWeekTransactions(response.data);
+        setBarChartData(barChartData);
+        const categoryTotals = organizeTransactionsByCategory(response.data);
+        console.log("Category Totals:", categoryTotals);
+        setExpenses(categoryTotals);
+      } else {
+        throw new Error("No data received");
+      }
+    } catch (error) {
+      console.error("Failed to fetch transactions:", error);
+      throw error;  // re-throw the error to be caught by the caller
+    }
+  };
+  
   const handleSwipeAnimation = () => {
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -447,6 +485,13 @@ export default function HomeScreen({ navigation }) {
   }
 
   return (
+    <ScrollView
+    contentContainerStyle={{ flexGrow: 1 }}
+    refreshControl={
+      <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+    }
+  >
+
     <View style={styles.container}>
       <TabBar
         tabs={["Daily", "Weekly", "Monthly"]}
@@ -546,6 +591,7 @@ export default function HomeScreen({ navigation }) {
         )}
       </View>
     </View>
+    </ScrollView>
   );
 }
 

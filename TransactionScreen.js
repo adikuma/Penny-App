@@ -10,10 +10,11 @@ import {
   Image,
   ImageBackground,
   Modal,
+  FlatList,
+  RefreshControl,
 } from "react-native";
 import * as Font from "expo-font";
 import * as Haptics from "expo-haptics";
-import { FlatList } from "react-native";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 
@@ -22,13 +23,18 @@ const TransactionItem = ({ item }) => {
   const [isImageModalVisible, setImageModalVisible] = useState(false);
 
   const handleImageClick = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setImageModalVisible(true);
-  };
+};
 
   const handleCloseModal = () => {
     setImageModalVisible(false);
   };
 
+  const wait = (timeout) => {
+    return new Promise(resolve => setTimeout(resolve, timeout));
+  };
+  
   return (
     <TouchableOpacity
       style={styles.transactionItem}
@@ -98,6 +104,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const blurAnim = useRef(new Animated.Value(0)).current;
 
@@ -150,6 +157,29 @@ export default function App() {
       setSearchQuery("");
     }
   };
+
+  const fetchTransactions = async () => {
+    try {
+      const response = await axios.get("http://192.168.50.240:3000/getTransactions");
+      if (response.status === 200) {
+        setTransactions(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch transactions:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+
+    //refresh
+    const onRefresh = React.useCallback(() => {
+      setRefreshing(true);
+      fetchTransactions().then(() => setRefreshing(false));
+    }, []);
+  
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -241,6 +271,13 @@ export default function App() {
           renderItem={({ item }) => <TransactionItem item={item} />}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+            />
+          }
+  
         />
       </View>
     </View>

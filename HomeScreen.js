@@ -97,7 +97,7 @@ const organizeTransactionsByCategory = (transactions) => {
       transaction.total
     );
 
-    categoryTotals[transaction.category].Daily += parseFloat(transaction.total); 
+    categoryTotals[transaction.category].Daily += parseFloat(transaction.total);
     categoryTotals[transaction.category].Monthly += parseFloat(
       transaction.total
     );
@@ -216,7 +216,6 @@ export default function HomeScreen({ navigation }) {
   console.log(selectedTab);
   const [value, setValue] = useState("$0.00");
   const [date, setDate] = useState("");
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const remainingQuota =
     quotas[selectedTab] - parseFloat(value.substring(1).replace(/,/g, ""));
   const progress = (remainingQuota / quotas[selectedTab]) * 100;
@@ -225,6 +224,9 @@ export default function HomeScreen({ navigation }) {
     ? styles.quotaExceeded
     : styles.valueText;
   const [selectedValue, setSelectedValue] = useState("");
+  //animation
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fadeTabAnim = useRef(new Animated.Value(1)).current; // For tab changes
   //chart tiles
   const chartTitle = `${selectedTab} Expenses`;
   //getting transactions
@@ -390,10 +392,40 @@ export default function HomeScreen({ navigation }) {
     }));
   };
 
+  const handleSwipeAnimation = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 100,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const handleTabChangeAnimation = (newTab) => {
+    setSelectedTab(newTab); 
+    Animated.timing(fadeTabAnim, {
+      toValue: 0,
+      duration: 100,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.timing(fadeTabAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
   const onSwipeLeft = () => {
     if (indices[selectedTab] > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       updateIndex(indices[selectedTab] - 1);
+      handleSwipeAnimation();
     }
   };
 
@@ -401,6 +433,7 @@ export default function HomeScreen({ navigation }) {
     if (indices[selectedTab] < organizedData[selectedTab].length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       updateIndex(indices[selectedTab] + 1);
+      handleSwipeAnimation();
     }
   };
 
@@ -418,8 +451,10 @@ export default function HomeScreen({ navigation }) {
       <TabBar
         tabs={["Daily", "Weekly", "Monthly"]}
         selectedTab={selectedTab}
-        onSelect={setSelectedTab}
+        onSelect={handleTabChangeAnimation}
       />
+      <Animated.View style={[styles.contentSection, { opacity: fadeTabAnim }]}>
+
       <GestureRecognizer
         onSwipeLeft={onSwipeLeft}
         onSwipeRight={onSwipeRight}
@@ -433,7 +468,9 @@ export default function HomeScreen({ navigation }) {
           <Animated.Text style={[quotaTextStyle, { opacity: fadeAnim }]}>
             {value}
           </Animated.Text>
-          <Text style={styles.dateText}>{formatDate(date)}</Text>
+          <Animated.Text style={[styles.dateText, { opacity: fadeAnim }]}>
+            {formatDate(date)}
+          </Animated.Text>
         </View>
         {/* <TouchableOpacity onPress={onSwipeRight} style={styles.arrowButton}>
           <MaterialIcons name="arrow-forward" size={18} color="grey" />
@@ -442,6 +479,7 @@ export default function HomeScreen({ navigation }) {
           <ExceededIndicator amount={Math.abs(remainingQuota)} />
         )}
       </GestureRecognizer>
+      </Animated.View>
 
       <View style={styles.squaresSection}>
         <View style={styles.squaresContainer}>

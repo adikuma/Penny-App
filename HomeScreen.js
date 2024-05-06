@@ -426,7 +426,7 @@ export default function HomeScreen({ navigation }) {
       }
     } catch (error) {
       console.error("Failed to fetch transactions:", error);
-      throw error;  // re-throw the error to be caught by the caller
+      throw error; 
     }
   };
   

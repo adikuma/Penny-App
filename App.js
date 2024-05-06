@@ -8,8 +8,11 @@ import TransactionScreen from './TransactionScreen';
 import CameraScreen from './CameraScreen';
 import * as Haptics from 'expo-haptics';
 import { createStackNavigator } from '@react-navigation/stack';
-import PhotoReviewScreen from './PhotoReviewScreen'; // Make sure this import is correct
-import TransactionDetail from './TransactionDetail';  // Make sure to import TransactionDetail
+import PhotoReviewScreen from './PhotoReviewScreen'; 
+import TransactionDetail from './TransactionDetail';  
+import { LogBox } from 'react-native';
+
+LogBox.ignoreAllLogs();
 
 const CameraStack = createStackNavigator();
 const TransactionStack = createStackNavigator();  // Create a stack for transactions

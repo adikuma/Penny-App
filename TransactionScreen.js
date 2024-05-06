@@ -230,6 +230,20 @@ export default function App() {
     return <Text>Error: {error}</Text>;
   }
 
+  const sortedTransactions = transactions.sort((a, b) => {
+    const dateA = new Date(a.date.split('/').reverse().join('-'));
+    const dateB = new Date(b.date.split('/').reverse().join('-'));
+    return dateB - dateA;
+  });
+
+  const sortedFilteredTransactions = filteredTransactions.sort((a, b) => {
+    const dateA = new Date(a.date.split('/').reverse().join('-'));
+    const dateB = new Date(b.date.split('/').reverse().join('-'));
+    return dateB - dateA;
+  });
+  console.log('Sorted: ', {sortedTransactions});
+
+
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
@@ -263,8 +277,8 @@ export default function App() {
       </View>
       <View style={styles.customLine} />
       <View style={styles.transactionList}>
-        <FlatList
-          data={searchQuery.trim() === "" ? transactions : filteredTransactions}
+      <FlatList
+          data={searchQuery.trim() === "" ? sortedTransactions : sortedFilteredTransactions}
           keyExtractor={(item) =>
             item._id ? item._id.toString() : Math.random().toString()
           }
@@ -277,7 +291,6 @@ export default function App() {
               onRefresh={onRefresh}
             />
           }
-  
         />
       </View>
     </View>

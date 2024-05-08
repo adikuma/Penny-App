@@ -1,7 +1,7 @@
 # Daily-Groceries
 
 ## Overview
-Daily-Groceries is a mobile application designed to simplify the management of grocery receipts and expense tracking. Developed for those who find it cumbersome to manage paper receipts and keep track of household expenses manually. The mastermind behind this app is none other than my mum, who envisioned a solution that could help her manage daily grocery expenses with ease.
+Penny is a mobile application designed to simplify the management of grocery receipts and expense tracking. Developed for those who find it cumbersome to manage paper receipts and keep track of household expenses manually. The mastermind behind this app is none other than my mum, who envisioned a solution that could help her manage daily grocery expenses with ease.
 
 The app offers the ability to scan receipts, categorize purchases, and view a summary of expenses over different time frames (daily, weekly, and monthly). This project not only serves a practical purpose but also aims to demonstrate how everyday problems can be solved with custom software solutions.
 

@@ -1,4 +1,4 @@
-# Daily-Groceries
+# Penny
 
 ## Overview
 Penny is a mobile application designed to simplify the management of grocery receipts and expense tracking. Developed for those who find it cumbersome to manage paper receipts and keep track of household expenses manually. The mastermind behind this app is none other than my mum, who envisioned a solution that could help her manage daily grocery expenses with ease.
